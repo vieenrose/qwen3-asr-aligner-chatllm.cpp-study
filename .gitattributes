@@ -1,2 +1,4 @@
 *.bin filter=lfs diff=lfs merge=lfs -text
 models/qwen3-asr-0.6b-q4_0.bin filter=lfs diff=lfs merge=lfs -text
+samples/phoneNumber1-zh-TW.wav filter=lfs diff=lfs merge=lfs -text
+samples/phoneNumber2-zh-TW.wav filter=lfs diff=lfs merge=lfs -text
