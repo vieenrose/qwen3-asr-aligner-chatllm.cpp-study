@@ -1,0 +1,36 @@
+# Environment variables (user-specific)
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Results directory
+results/
+*.json
+*.txt
+
+# Model files (large)
+*.bin
+*.ggmm
+quantized/
+dump/
+
+# Build directories
+*.egg-info/
+dist/
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
