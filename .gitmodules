@@ -1,6 +1,6 @@
 [submodule "chatllm.cpp"]
 	path = chatllm.cpp
-	url = https://github.com/foldl/chatllm.cpp
+	url = https://github.com/vieenrose/chatllm.cpp
 [submodule "Chinese-ITN"]
 	path = Chinese-ITN
 	url = https://github.com/HaujetZhao/Chinese-ITN
