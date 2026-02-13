@@ -20,7 +20,7 @@ RUN rm -rf /app/chatllm.cpp/build && \
     mkdir -p /app/chatllm.cpp/build && \
     cd /app/chatllm.cpp/build && \
     cmake .. && \
-    make -j${BUILD_THREADS}
+    make -j${BUILD_THREADS} libchatllm
 
 # Copy built libraries to /app/lib AFTER build
 RUN mkdir -p /app/lib && \

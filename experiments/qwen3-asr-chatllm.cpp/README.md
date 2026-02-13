@@ -23,7 +23,7 @@ docker build -t qwen3-asr-chatllm -f experiments/qwen3-asr-chatllm.cpp/Dockerfil
 ### Docker Run
 
 ```bash
-docker run --rm -v $(pwd)/experiments/qwen3-asr-chatllm.cpp/results:/app/experiment/results qwen3-asr-chatllm
+docker run --rm -v $(pwd)/experiments/qwen3-asr-chatllm.cpp/results:/app/experiments/qwen3-asr-chatllm.cpp/results qwen3-asr-chatllm
 ```
 
 ### Local Run (without Docker)
