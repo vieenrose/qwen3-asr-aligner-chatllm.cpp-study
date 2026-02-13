@@ -1,20 +1,28 @@
+# Qwen3-ASR-0.6B-CPU
 
+This repository implements Automatic Speech Recognition (ASR) using the **Qwen3-ASR** model with CPU inference powered by **chatllm.cpp**. It features Chinese Inverse Text Normalization (ITN) and streaming transcription capabilities.
 
-# Experiments
-## exp1: experiments/qwen3-asr-chatllm.cpp
-0. store in a file environment variables to control
-   a. number of threads used to build chatllm.cpp in build time
-   b. number of threads used to run inference in runtime
-   c. context lenghth use for inference 
-1. create a docker container
-2. to build chatllm.cpp library from source code ./chatllm.cpp 
-3. then use or adapt its python binding ./chatllm.cpp/bindings/chatllm.py to run in container, 
-   to use ./models/qwen3-asr-0.6b-q4_0.bin to 
-   transcribe ./samples/phoneNumber1-zh-TW.wav in live with streaming output in zh-TW with opencc-python-reimplemented, 
-   then apply inverse text normalization from ./Chinese-ITN on it then show result after ITN in the end
-   show bencharmk result on chatllm.cpp inference in the end on
-   a. time to 1st token 
-   b. gneneration speed
-   c. memory overhead
-   d. final result WER againt ground truth ./samples/phoneNumber1-zh-TW.txt
-4. memory leak test: iteraive 3. 10 times but reuse the model object to track memory usage
+## Repository Structure
+
+- `chatllm.cpp/`: Submodule for the C++ inference engine.
+- `Chinese-ITN/`: Submodule for Chinese Inverse Text Normalization.
+- `models/`: Directory for model weights (`qwen3-asr-0.6b-q4_0.bin`).
+- `samples/`: Sample audio files for testing.
+- `experiments/`: Contains experiment implementations and benchmarks.
+
+## Experiments
+
+### Experiment 1: Qwen3-ASR with chatllm.cpp Python Bindings
+
+Located in: [`experiments/qwen3-asr-chatllm.cpp/`](experiments/qwen3-asr-chatllm.cpp/)
+
+**Goal:** Implement a complete ASR pipeline using `chatllm.cpp` Python bindings instead of the CLI executable.
+
+**Features:**
+- **Streaming ASR:** Real-time transcription output.
+- **Text Processing:** `zh-CN` to `zh-TW` conversion (via `opencc`) and Inverse Text Normalization (ITN).
+- **Benchmarking:** Measures Time To First Token (TTFT), generation speed, memory usage, and Word Error Rate (WER).
+- **Memory Safety:** Includes leak detection tests over multiple iterations.
+- **Containerization:** Full Docker support for reproducible builds.
+
+For detailed usage instructions, please refer to the [Experiment 1 README](experiments/qwen3-asr-chatllm.cpp/README.md).
