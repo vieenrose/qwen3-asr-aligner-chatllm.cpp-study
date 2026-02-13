@@ -13,10 +13,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy chatllm.cpp source and submodules
 COPY chatllm.cpp/ /app/chatllm.cpp/
 
-# Fix script paths - copy binding.py and models.json for Docker
-COPY experiments/qwen3-asr-chatllm.cpp/binding.py /app/scripts/
-COPY experiments/qwen3-asr-chatllm.cpp/models.json /app/scripts/
-
 # Build chatllm.cpp FIRST (build arg for thread count)
 # This builds libchatllm.so and puts it in /app/chatllm.cpp/bindings/
 ARG BUILD_THREADS=22
@@ -39,7 +35,7 @@ COPY models/ /app/models/
 COPY Chinese-ITN/ /app/Chinese-ITN/
 
 # Copy experiment files
-COPY experiments/qwen3-asr-chatllm.cpp/ /app/experiment/
+COPY experiments/qwen3-asr-chatllm.cpp/ /app/experiments/qwen3-asr-chatllm.cpp/
 
 # Copy sample audio
 COPY samples/ /app/samples/
@@ -49,9 +45,9 @@ RUN mkdir -p /app/bindings && \
     cp /app/chatllm.cpp/bindings/libchatllm.so /app/bindings/ && \
     cp /app/chatllm.cpp/bindings/chatllm.py /app/bindings/
 
-RUN pip install --no-cache-dir -r /app/experiment/requirements.txt
+RUN pip install --no-cache-dir -r /app/experiments/qwen3-asr-chatllm.cpp/requirements.txt
 
-WORKDIR /app/experiment
+WORKDIR /app/experiments/qwen3-asr-chatllm.cpp
 
 ENV PYTHONPATH=/app/bindings:/app/Chinese-ITN:/app/chatllm.cpp/scripts
 
