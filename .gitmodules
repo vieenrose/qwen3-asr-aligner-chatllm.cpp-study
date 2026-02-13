@@ -1,6 +1,7 @@
 [submodule "chatllm.cpp"]
 	path = chatllm.cpp
 	url = https://github.com/vieenrose/chatllm.cpp
+	branch = feature/exp1-qwen3-asr
 [submodule "Chinese-ITN"]
 	path = Chinese-ITN
 	url = https://github.com/HaujetZhao/Chinese-ITN
