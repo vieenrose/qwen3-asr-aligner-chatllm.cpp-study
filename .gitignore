@@ -34,3 +34,4 @@ dist/
 
 # macOS
 .DS_Store
+*.wav
