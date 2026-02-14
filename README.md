@@ -54,3 +54,7 @@ Then load Qwen3-ASR 1.7B model to do the same, then unload it.
 0. Develope this experiment in experiments/model-switch/ from a fresh copy of qwen3-asr-chatllm.cpp, as standalone and independant project from exp1
 1. Record memory overhead for each iteration, before, after loading and unloading each of models
 2. Benchmark also reports performance metrics like WER, TTFT, generation speed, etc. 
+
+### Experiment 4: Test Forced Aligner for Memory Leak
+Like exp2, but with Qwen3 Forced Aligenr ‘qwen3-forced-aligner-0.6b-q4_0.bin’ in models, you have to alignment with input audio jfk.wav and transcript in jfk.txt for 100 iteration in two ways: 1. load then unload model 2. keep the model but call restart() between 2 inference.
+Report also, TTFT, generation speed, memory usage.
