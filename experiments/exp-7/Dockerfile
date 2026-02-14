@@ -38,7 +38,9 @@ COPY Chinese-ITN/ /app/Chinese-ITN/
 
 COPY experiments/exp-7/ /app/experiments/exp-7/
 
-COPY samples/*.wav /app/samples/
+RUN mkdir -p /app/samples
+COPY samples/phoneNumber1-zh-TW.wav /app/samples/
+COPY samples/news-zh.mp3 /app/samples/
 
 RUN mkdir -p /app/bindings && \
     cp /app/chatllm.cpp/bindings/libchatllm.so /app/bindings/ && \
