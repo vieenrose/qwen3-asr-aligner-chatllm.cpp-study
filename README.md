@@ -27,6 +27,21 @@ Located in: [`experiments/qwen3-asr-chatllm.cpp/`](experiments/qwen3-asr-chatllm
 
 For detailed usage instructions, please refer to the [Experiment 1 README](experiments/qwen3-asr-chatllm.cpp/README.md).
 
-### Experiment 2: Extend Experiement 1 to Compare Two Ways of Repeated Inference against Memory Leak
-## Way 1: Destroy and Re-create the Object
-## Way 2: Use restart() instead
+### Experiment 2: Compare Two Ways of Repeated Inference for Memory Leak
+
+Located in: [`experiments/two-ways-of-repeated-inference/`](experiments/two-ways-of-repeated-inference/)
+
+**Goal:** Compare memory behavior of two approaches to repeated inference:
+
+| Method | Description |
+|--------|-------------|
+| **Way 1** | Destroy and Re-create `ChatLLM` object each iteration |
+| **Way 2** | Reuse `ChatLLM` object, call `restart()` to reset context |
+
+**Features:**
+- **Side-by-side Comparison:** Runs both methods with 100 iterations each
+- **Memory Tracking:** Measures RSS memory growth per iteration
+- **Benchmark Metrics:** TTFT, generation speed, WER for both methods
+- **Containerization:** Standalone Docker image
+
+For detailed usage instructions, please refer to the [Experiment 2 README](experiments/two-ways-of-repeated-inference/README.md).

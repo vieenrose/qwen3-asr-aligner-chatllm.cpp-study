@@ -1,0 +1,4 @@
+opencc-python-reimplemented
+psutil
+requests
+
