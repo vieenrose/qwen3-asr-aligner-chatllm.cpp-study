@@ -1,6 +1,17 @@
-# Qwen3-ASR-0.6B-CPU
+---
+title: Qwen3-ASR 0.6B CPU
+emoji: "\U0001F399"
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+license: mit
+short_description: Speech Recognition with Forced Alignment (CPU Inference)
+---
 
-This repository implements Automatic Speech Recognition (ASR) using the **Qwen3-ASR** model with CPU inference powered by **chatllm.cpp**. It features Chinese Inverse Text Normalization (ITN) and streaming transcription capabilities.
+# Qwen3-ASR 0.6B CPU
+
+Automatic Speech Recognition (ASR) using the **Qwen3-ASR** model with CPU inference powered by **chatllm.cpp**.
 
 ## Repository Structure
 
@@ -95,12 +106,25 @@ aligned-transcript -> opencc-python-reimplemented -> zh-TW transcript
 5. transcript result have to be shown in live streaming on screen
 6. show alignment result in style of .srt on screen in the end
 
-### Experiment 7: 
-in experiments/exp-7, you started from a copy of exp-6 to deploy it to 
-HuggingFace Spaces at https://huggingface.co/spaces/Luigi/Qwen3-ASR-0.6B-CPU
+### Experiment 7: HuggingFace Spaces Deployment
 
-1. Use audio clip uploaded via browser as source
-2. Display live streaming transcript from Qwen3-ASR in real-time in WebUI
-   Then show itn-transcript converted into zh-TW by opencc 
-3. Display also .srt result in UI once alignment result is completed
-4. Provide a button for user to export aligned transcript in .srt
+Located in: [`experiments/exp-7/`](experiments/exp-7/)
+
+**Goal:** Deploy the exp-6 pipeline to HuggingFace Spaces as an interactive WebUI.
+
+**Features:**
+- **Audio Upload**: Upload audio files via browser or select from samples
+- **Live Streaming**: Character-by-character transcript display
+- **Language Detection**: Shows detected language (Chinese, English, Japanese, Korean)
+- **zh-TW Output**: Traditional Chinese conversion via OpenCC
+- **SRT Preview**: View alignment results in subtitle format
+- **SRT Download**: Export subtitles as .srt file
+- **Sample Audio**: Quick demo with news-zh.mp3 and phoneNumber1-zh-TW.wav
+
+**Technical Details:**
+- **Framework**: Gradio 4.x with streaming support
+- **Inference**: chatllm.cpp built from [vieenrose fork](https://github.com/vieenrose/chatllm.cpp/tree/feature/exp1-qwen3-asr)
+- **Memory**: ~1.5GB peak (one model loaded at a time)
+- **SDK**: Docker (port 7860)
+
+For detailed usage instructions, please refer to the [Experiment 7 README](experiments/exp-7/README.md).
