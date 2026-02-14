@@ -94,3 +94,13 @@ aligned-transcript -> opencc-python-reimplemented -> zh-TW transcript
    where memory leak during load and unload models has been fixed
 5. transcript result have to be shown in live streaming on screen
 6. show alignment result in style of .srt on screen in the end
+
+### Experiment 7: 
+in experiments/exp-7, you started from a copy of exp-6 to deploy it to 
+HuggingFace Spaces at https://huggingface.co/spaces/Luigi/Qwen3-ASR-0.6B-CPU
+
+1. Use audio clip uploaded via browser as source
+2. Display live streaming transcript from Qwen3-ASR in real-time in WebUI
+   Then show itn-transcript converted into zh-TW by opencc 
+3. Display also .srt result in UI once alignment result is completed
+4. Provide a button for user to export aligned transcript in .srt
