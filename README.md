@@ -51,5 +51,6 @@ Benchmark for 100-iteation repeated inference.
 For each iteration, 
 load Qwen3-ASR 0.6B model to transcribe phoneNumber1-zh-TW.wav, then unload it. 
 Then load Qwen3-ASR 1.7B model to do the same, then unload it. 
+0. Develope this experiment in experiments/model-switch/ from a fresh copy of qwen3-asr-chatllm.cpp, as standalone and independant project from exp1
 1. Record memory overhead for each iteration, before, after loading and unloading each of models
 2. Benchmark also reports performance metrics like WER, TTFT, generation speed, etc. 
