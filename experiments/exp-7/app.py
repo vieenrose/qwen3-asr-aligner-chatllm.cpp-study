@@ -20,10 +20,11 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 SAMPLES_DIR = PROJECT_ROOT / 'samples'
 
-SAMPLE_AUDIOS = {
-    "News (Chinese, 2.7 min)": str(SAMPLES_DIR / 'news-zh.mp3'),
-    "Phone Number (zh-TW, 30s)": str(SAMPLES_DIR / 'phoneNumber1-zh-TW.wav'),
-}
+SAMPLE_AUDIOS = {}
+if (SAMPLES_DIR / 'phoneNumber1-zh-TW.wav').exists():
+    SAMPLE_AUDIOS["Phone Number (zh-TW, 30s)"] = str(SAMPLES_DIR / 'phoneNumber1-zh-TW.wav')
+if (SAMPLES_DIR / 'news-zh.mp3').exists():
+    SAMPLE_AUDIOS["News (Chinese, 2.7 min)"] = str(SAMPLES_DIR / 'news-zh.mp3')
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pipeline import run_pipeline_streaming
