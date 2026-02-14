@@ -59,3 +59,18 @@ Then load Qwen3-ASR 1.7B model to do the same, then unload it.
 Like exp2, but with Qwen3 Forced Aligenr ‘qwen3-forced-aligner-0.6b-q4_0.bin’ in models, you have to alignment with input audio jfk.wav and transcript in jfk.txt for 100 iteration in two ways: 1. load then unload model 2. keep the model but call restart() between 2 inference.
 Report also, TTFT, generation speed, memory usage.
 You have to perform alignment inference unquely via direct Python binding to call ChatLLM.cpp C++ library similarly to Qwen3-ASR DEMO before. 
+
+### Experiment 5: Test Qwen3-ASR 0.6B + Forced Aligner for Memory Leak
+Exp 5 is like combinaison of exp 1 and 4. You will perform 100 iterations of inferece 
+to test memory leak. For each of iteration, transcribe jfk.wav with Qwen3-ASR 0.6B via 
+Python binding to obtain transcript then use Qwen3 forced aligner to peform alignment on
+transcript generated from Qwen3-ASR and jfk.wav. 
+
+There is a constraint that You can only load one model at a time, so you are supposed to for each of iteration, load ASR model to transcribe, then unload it to load aligner to make alignment before unloading it for next iteration.
+
+As before, report also performance metrics for each of models, like TTFT, genration speed. 
+For ASR model, you report WER, and for alignment result, you manually verify its correctness.
+
+You have to develop all your work in experiments/exp-5 as standalone project independent from others.
+I already copied qwen3-asr-chatllm.cpp to exp-5 under experiments to help your start.
+
