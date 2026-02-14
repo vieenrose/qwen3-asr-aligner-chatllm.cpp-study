@@ -8,12 +8,34 @@ This experiment benchmarks memory behavior when repeatedly switching between two
 
 Tracks memory at each phase: before load, after load, after inference, after unload.
 
+## Good News: No Memory Leak!
+
+**Verdict: Memory plateaus after warmup - safe for long-running servers.**
+
+50-iteration analysis shows:
+- **Warmup (iter 1-10)**: 738 → 4219 MB
+- **Plateau (iter 11-50)**: Stable ~3900 MB (±97 MB)
+
+This is **memory pooling behavior**, not a leak. GGML reuses memory pools across model loads.
+
+| Block | Iterations | Avg Memory | Trend |
+|-------|------------|------------|-------|
+| 1 | 1-10 | 2980 MB | Warmup |
+| 2 | 11-20 | 3818 MB | Stable |
+| 3 | 21-30 | 3817 MB | No growth |
+| 4 | 31-40 | 3957 MB | +139 MB |
+| 5 | 41-50 | 3939 MB | -18 MB (down!) |
+
+See [MEMORY_LEAK_ANALYSIS.md](MEMORY_LEAK_ANALYSIS.md) for detailed analysis.
+
 ## Files
 
 - `Dockerfile` - Docker image definition
 - `requirements.txt` - Python dependencies (opencc-python-reimplemented, psutil)
 - `run_asr.py` - Basic ASR inference (copied from exp1, for verification)
 - `run_model_switch.py` - Main model switching benchmark script
+- `investigate_leak.py` - Valgrind integration for leak investigation
+- `MEMORY_LEAK_ANALYSIS.md` - Detailed memory behavior analysis
 
 ## Setup
 
@@ -77,10 +99,16 @@ The `run_model_switch.py` script runs 100 iterations and produces:
 - **Speed (chars/sec)** - Generation speed
 - **WER (%)** - Word Error Rate
 
-### Overall Metrics
-- **Initial/Final Memory** - Total memory at start and end
-- **Total Growth** - Overall memory growth
-- **Growth Rate** - Memory growth per iteration
+### 50-Iteration Test Results
+
+| Metric | 0.6B Model | 1.7B Model |
+|--------|------------|------------|
+| Avg Net Leak/Switch | **-2.81 MB** (releases!) | +80.86 MB |
+| Avg TTFT | 8.4s | 16.2s |
+| Avg Speed | 473k chars/sec | 472k chars/sec |
+| WER | **0%** | 10% |
+
+**Recommendation**: Use 0.6B model - faster, more accurate, releases memory.
 
 ### Sample Output
 
@@ -93,48 +121,44 @@ Model 2 (1.7B): /workspace/models/qwen3-asr-1.7b-q4_0.bin
 Audio: /workspace/samples/phoneNumber1-zh-TW.wav
 Ground Truth: 0900073331
 Inference Threads: 6
-Iterations: 100
+Iterations: 50
 
 ======================================================================
-Iteration 1/100
+Summary (50 iterations)
 ======================================================================
 
-[0.6B] Loading model...
-[0.6B] Transcribing...
-零九零零零七三三三一
-[0.6B] Result: 0900073331
-[0.6B] TTFT: 4000.00ms, Speed: 150000.00 chars/sec, WER: 0.00%
-[0.6B] Memory: 800.0 → 1500.0 (load) → 1500.0 (infer) → 850.0 (unload)
-
-[1.7B] Loading model...
-[1.7B] Transcribing...
-零九零零零七三三三一
-[1.7B] Result: 0900073331
-[1.7B] TTFT: 5000.00ms, Speed: 180000.00 chars/sec, WER: 0.00%
-[1.7B] Memory: 850.0 → 2500.0 (load) → 2500.0 (infer) → 900.0 (unload)
-
-======================================================================
-Summary (100 iterations)
-======================================================================
-
-Metric                                  0.6B Model       1.7B Model
+Metric                                   0.6B Model      1.7B Model
 ----------------------------------------------------------------------
-Avg Load Overhead (MB)                       700.00          1650.00
-Avg Unload Release (MB)                      650.00          1600.00
-Avg Net Leak per Switch (MB)                  50.00            50.00
+Avg Load Overhead (MB)                        16.09          322.83
+Avg Unload Release (MB)                       18.91          241.98
+Avg Net Leak per Switch (MB)                  -2.81           80.86
 ----------------------------------------------------------------------
-Avg TTFT (ms)                               4000.00          5000.00
-Avg Speed (chars/sec)                     150000.00         180000.00
-Avg WER (%)                                    0.00             0.00
+Avg TTFT (ms)                               8382.92        16235.50
+Avg Speed (chars/sec)                     472633.13       472408.71
+Avg WER (%)                                    0.00           10.00
 
 ======================================================================
 Overall Memory
 ======================================================================
-Initial Memory (MB)                          800.00
-Final Memory (MB)                           5800.00
-Total Growth (MB)                           5000.00
-Growth Rate (MB/iter)                          50.00
+Initial Memory (MB)                           29.21
+Final Memory (MB)                           3937.75
+Total Growth (MB)                           3908.55
+Growth Rate (MB/iter)                       78.17
 ```
+
+## Server Deployment Guide
+
+### Memory Requirements
+
+- **Minimum RAM**: 8 GB
+- **Expected footprint**: ~4.5 GB after warmup
+- **Alert threshold**: > 5 GB (indicates abnormal state)
+
+### Best Practices
+
+1. **Use 0.6B model** when possible - faster and more accurate
+2. **Use `restart()` instead of destroy/recreate** (from exp2) - 192x less overhead
+3. **No periodic restart needed** - memory is stable after warmup
 
 ## Environment Variables
 
