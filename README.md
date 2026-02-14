@@ -74,3 +74,23 @@ For ASR model, you report WER, and for alignment result, you manually verify its
 You have to develop all your work in experiments/exp-5 as standalone project independent from others.
 I already copied qwen3-asr-chatllm.cpp to exp-5 under experiments to help your start.
 
+### Experiment 6: Extend exp 5 to support zh-TW
+
+under experiments/exp-6, 
+you extend exp-5 to follow a more refined pipeline schematised below in Python
+
+any audio -> pyffmpeg -> wav
+wav -> Qwen3-ASR 0.6B Q4_0 -> live transcript in streaming, detected language 
+full transcript -> Chinese ITN -> itn-transcript
+itn-transcript -> Jieba -> tokenzied-transcript
+tokenzied-transcript -> Forced Aligner -> aligned-transcript
+aligned-transcript -> opencc-python-reimplemented -> zh-TW transcript
+
+1. test with ./samples/meeting-1min5s.mp3
+2. you can only load one llm model at a time
+3. show performance benchmark: TTFT, generation speed, memory overhead
+4. inference with python binding uniquely to use ChatLLM.cpp C++ library
+   built from https://github.com/vieenrose/chatllm.cpp/tree/feature/exp1-qwen3-asr
+   where memory leak during load and unload models has been fixed
+5. transcript result have to be shown in live streaming on screen
+6. show alignment result in style of .srt on screen in the end
