@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+.gitattributes
+.gitmodules
+
+# Build artifacts
+*.so
+*.bin
+**/build/
+__pycache__/
+
+# Results and cache
+*.json
+*.txt
+test_cases_correct.txt
+test_cases_wrong.txt
+.pytest_cache/
+results/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Python
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+*.egg
+
+# Large files (will be copied separately)
+*.wav
+
+# Crush
+.crush/
