@@ -45,3 +45,11 @@ Located in: [`experiments/two-ways-of-repeated-inference/`](experiments/two-ways
 - **Containerization:** Standalone Docker image
 
 For detailed usage instructions, please refer to the [Experiment 2 README](experiments/two-ways-of-repeated-inference/README.md).
+
+### Experiment 3: Test Model Swiching for Memory Leak
+Benchmark for 100-iteation repeated inference. 
+For each iteration, 
+load Qwen3-ASR 0.6B model to transcribe phoneNumber1-zh-TW.wav, then unload it. 
+Then load Qwen3-ASR 1.7B model to do the same, then unload it. 
+1. Record memory overhead for each iteration, before, after loading and unloading each of models
+2. Benchmark also reports performance metrics like WER, TTFT, generation speed, etc. 
