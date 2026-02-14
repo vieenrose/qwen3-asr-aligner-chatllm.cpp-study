@@ -26,3 +26,7 @@ Located in: [`experiments/qwen3-asr-chatllm.cpp/`](experiments/qwen3-asr-chatllm
 - **Containerization:** Full Docker support for reproducible builds.
 
 For detailed usage instructions, please refer to the [Experiment 1 README](experiments/qwen3-asr-chatllm.cpp/README.md).
+
+### Experiment 2: Extend Experiement 1 to Compare Two Ways of Repeated Inference against Memory Leak
+## Way 1: Destroy and Re-create the Object
+## Way 2: Use restart() instead
