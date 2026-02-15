@@ -10,6 +10,7 @@ __pycache__/
 results/
 *.json
 *.txt
+!**/requirements.txt
 
 # Model files (large)
 *.bin
