@@ -329,6 +329,12 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
     
     bindings_path = str(PROJECT_ROOT / 'chatllm.cpp' / 'bindings')
     
+    yield {'stage': 'loading_asr', 'message': 'Loading ASR model...'}
+    lib_asr = LibChatLLM(bindings_path)
+    
+    yield {'stage': 'loading_aligner', 'message': 'Loading Forced Aligner model...'}
+    lib_aligner = LibChatLLM(bindings_path)
+    
     for chunk_idx, (start_ms, end_ms) in enumerate(chunks):
         chunk_info = chunker.get_chunk_info(chunk_idx)
         
@@ -346,9 +352,6 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
         
         try:
             chunker.get_chunk_audio(chunk_idx, chunk_wav_path)
-            
-            yield {'stage': 'loading_asr', 'message': f'Loading ASR model for chunk {chunk_idx + 1}/{len(chunks)}...'}
-            lib_asr = LibChatLLM(bindings_path)
             
             chunk_asr_start = time.time()
             first_token_time = None
@@ -378,12 +381,9 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
                     
                 elif update['stage'] == 'error':
                     yield update
-                    lib_asr = None
                     return
             
             chunk_asr_end = time.time()
-            
-            lib_asr = None
             
             if first_token_time:
                 ttft_ms = (first_token_time - chunk_asr_start) * 1000
@@ -413,9 +413,6 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
                 'total_chunks': len(chunks)
             }
             
-            yield {'stage': 'loading_aligner', 'message': f'Loading Forced Aligner for chunk {chunk_idx + 1}/{len(chunks)}...'}
-            lib_aligner = LibChatLLM(bindings_path)
-            
             yield {
                 'stage': 'chunk_aligning',
                 'message': f'Chunk {chunk_idx + 1}/{len(chunks)}: Aligning...',
@@ -436,10 +433,7 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
                     
                 elif update['stage'] == 'error':
                     yield update
-                    lib_aligner = None
                     return
-            
-            lib_aligner = None
             
             yield {
                 'stage': 'chunk_complete',
@@ -455,9 +449,6 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
         finally:
             if os.path.exists(chunk_wav_path):
                 os.unlink(chunk_wav_path)
-    
-    lib_asr = None
-    lib_aligner = None
     
     chunker.cleanup()
     
