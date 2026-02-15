@@ -129,9 +129,24 @@ Located in: [`experiments/exp-7/`](experiments/exp-7/)
 
 For detailed usage instructions, please refer to the [Experiment 7 README](experiments/exp-7/README.md).
 
-### Experiment 8: Extend Experiment 7 to handle hours-long audio
-Start from a fresh copy of experiments/exp-7 named exp-8, 
-use ten-vad via ONNXruntime to segment input audio into chunks of around 20 seconds,
-so that each boundary between each pair of consecutive chunks is speech-aware,
-then run pipeline you devleloped in exp-7 to perform pipeline chunk by chunk, 
-with propre result accumulation and live streaming transcript display
+### Experiment 8: VAD-Based Chunking for Long Audio
+
+Located in: [`experiments/exp-8/`](experiments/exp-8/)
+
+**Goal:** Extend exp-7 to handle hours-long audio using VAD-based chunking.
+
+**Features:**
+- **TEN VAD**: Speech activity detection via ONNX Runtime
+- **Smart Chunking**: ~20s chunks with speech-aware boundaries
+- **Chunk Progress**: Visual progress display (e.g., "Chunk 3/12")
+- **Progressive SRT**: Subtitles available as chunks complete
+- **Live Streaming**: Transcript grows as each chunk is processed
+- **Automatic Routing**: Short audio (<30s) uses single-pass, long audio uses chunking
+
+**Technical Details:**
+- **VAD Model**: TEN VAD (downloaded from HuggingFace)
+- **Target Chunk**: 20 seconds (soft limit)
+- **Max Chunk**: 30 seconds (hard limit)
+- **Boundary**: Speech-aware (splits at silence gaps)
+
+For detailed usage instructions, please refer to the [Experiment 8 README](experiments/exp-8/README.md).

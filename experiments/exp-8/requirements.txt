@@ -1,0 +1,7 @@
+gradio>=4.0.0
+psutil
+pydub
+jieba
+opencc-python-reimplemented
+onnxruntime>=1.17.0
+numpy
