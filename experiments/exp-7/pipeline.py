@@ -128,14 +128,8 @@ def tokenize_with_jieba(text: str) -> List[str]:
 
 
 def convert_to_zh_tw(text: str) -> str:
-    try:
-        converter = opencc.OpenCC('s2twp')
-        result = converter.convert(text)
-        return result
-    except Exception as e:
-        print(f"[ERROR] convert_to_zh_tw failed: {e}")
-        print(f"[DEBUG] input text (first 100 chars): {text[:100] if text else 'EMPTY'}")
-        return text
+    converter = opencc.OpenCC('s2twp')
+    return converter.convert(text)
 
 
 def generate_srt_content(alignment: List[Dict]) -> str:
@@ -275,11 +269,13 @@ def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, N
         yield {'stage': 'itn', 'message': 'Applying Inverse Text Normalization...', 'text': transcript}
         
         itn_transcript = apply_itn(transcript)
+        zh_tw_transcript = convert_to_zh_tw(itn_transcript)
         
         yield {
             'stage': 'itn_done',
             'message': 'ITN complete',
             'text': itn_transcript,
+            'zh_tw_text': zh_tw_transcript,
             'language': detected_lang
         }
         
@@ -353,10 +349,6 @@ def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, N
         yield {'stage': 'aligned', 'message': f'Aligned {len(alignment)} words'}
         
         srt_content = generate_srt_content(alignment)
-        
-        print(f"[DEBUG] itn_transcript (first 100): {itn_transcript[:100] if itn_transcript else 'EMPTY'}")
-        zh_tw_transcript = convert_to_zh_tw(itn_transcript)
-        print(f"[DEBUG] zh_tw_transcript (first 100): {zh_tw_transcript[:100] if zh_tw_transcript else 'EMPTY'}")
         
         pipeline_end = time.time()
         metrics['total_time_sec'] = pipeline_end - pipeline_start

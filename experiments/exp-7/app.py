@@ -86,6 +86,7 @@ def transcribe_audio(audio_path: str):
             
             elif stage == 'itn_done':
                 itn_text = update.get('text', '')
+                zh_tw_text = update.get('zh_tw_text', '')
                 status = "ITN complete"
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
@@ -108,7 +109,6 @@ def transcribe_audio(audio_path: str):
             
             elif stage == 'done':
                 zh_tw_text = update.get('zh_tw_text', '')
-                print(f"[DEBUG app.py] received zh_tw_text: {zh_tw_text[:100] if zh_tw_text else 'EMPTY'}")
                 srt_content = update.get('srt', '')
                 metrics = update.get('metrics', {})
                 
