@@ -106,7 +106,12 @@ cleaned_words = [{text:"Hello", parent_id:0}, {text:"World", parent_id:2}]
 CHATLLM_CHECK(w.parent_id == (int)tok->timestamps.size());  // CRASH on gap
 ```
 
-### Why foldl Didn't Anticipate This
+### Why foldl Didn't Handle This
+foldl was **aware** that gaps could occur (hence the defensive `CHATLLM_CHECK` assertion), but chose to **fail fast** rather than handle the edge case gracefully. This design choice assumes:
+- Input text is well-formed (every sentence has valid words)
+- Punctuation-only sentences are considered invalid input
+- Crashing with a clear error is preferable to silent degradation
+
 The original check was written assuming every sentence produces at least one valid word after cleaning. This is true for normal transcripts, but fails with:
 - Punctuation-only sentences
 - Chunked audio with awkward boundaries
