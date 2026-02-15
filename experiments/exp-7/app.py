@@ -146,12 +146,7 @@ def load_sample(sample_name: str):
 
 
 with gr.Blocks(
-    title="Qwen3-ASR - Speech Recognition",
-    theme=gr.themes.Soft(),
-    css="""
-    .status-box { background: #f0f9ff; padding: 10px; border-radius: 8px; }
-    .language-box { background: #fef3c7; padding: 10px; border-radius: 8px; font-weight: bold; }
-    """
+    title="Qwen3-ASR - Speech Recognition"
 ) as app:
     
     gr.Markdown(
