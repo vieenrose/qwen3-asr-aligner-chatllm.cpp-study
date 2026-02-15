@@ -128,8 +128,7 @@ def chunk_audio(
     target_chunk_duration_s: float = 20.0,
     max_chunk_duration_s: float = 30.0,
     min_chunk_duration_s: float = 5.0,
-    vad_threshold: float = 0.5,
-    vad_model_path: str = None
+    vad_threshold: float = 0.5
 ) -> Tuple[List[Tuple[int, int]], str]:
     '''
     Main chunking function.
@@ -140,7 +139,6 @@ def chunk_audio(
         max_chunk_duration_s: Maximum chunk duration
         min_chunk_duration_s: Minimum chunk duration
         vad_threshold: VAD speech probability threshold
-        vad_model_path: Path to VAD ONNX model
         
     Returns:
         (chunks, wav_path): List of (start_ms, end_ms) tuples and path to converted WAV
@@ -153,7 +151,6 @@ def chunk_audio(
     
     speech_segments = detect_speech_segments(
         wav_path,
-        model_path=vad_model_path,
         threshold=vad_threshold
     )
     
@@ -178,14 +175,12 @@ class AudioChunker:
         audio_path: str,
         target_chunk_duration_s: float = 20.0,
         max_chunk_duration_s: float = 30.0,
-        vad_threshold: float = 0.5,
-        vad_model_path: str = None
+        vad_threshold: float = 0.5
     ):
         self.audio_path = audio_path
         self.target_chunk_duration_s = target_chunk_duration_s
         self.max_chunk_duration_s = max_chunk_duration_s
         self.vad_threshold = vad_threshold
-        self.vad_model_path = vad_model_path
         
         self.chunks = []
         self.wav_path = None
@@ -197,8 +192,7 @@ class AudioChunker:
             self.audio_path,
             target_chunk_duration_s=self.target_chunk_duration_s,
             max_chunk_duration_s=self.max_chunk_duration_s,
-            vad_threshold=self.vad_threshold,
-            vad_model_path=self.vad_model_path
+            vad_threshold=self.vad_threshold
         )
         self.total_duration_s = get_audio_duration(self.wav_path)
         return self.chunks

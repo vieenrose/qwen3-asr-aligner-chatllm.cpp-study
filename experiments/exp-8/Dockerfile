@@ -30,9 +30,7 @@ RUN pip install --no-cache-dir huggingface_hub && \
     mkdir -p /app/models && \
     python -c "from huggingface_hub import hf_hub_download; \
     hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-asr-0.6b-q4_0.bin', local_dir='/app/models'); \
-    hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-forced-aligner-0.6b-q4_0.bin', local_dir='/app/models'); \
-    vad_path = hf_hub_download('TEN-framework/ten-vad', 'src/onnx_model/ten-vad.onnx'); \
-    import shutil; shutil.copy(vad_path, '/app/models/ten-vad.onnx')"
+    hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-forced-aligner-0.6b-q4_0.bin', local_dir='/app/models')"
 
 RUN git clone --depth 1 https://github.com/HaujetZhao/Chinese-ITN /app/Chinese-ITN
 

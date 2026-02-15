@@ -1,34 +1,28 @@
 #!/usr/bin/env python3
 # coding: utf-8
 '''
-TEN VAD ONNX Wrapper for Voice Activity Detection
+TEN VAD Wrapper for Voice Activity Detection
 
-Uses TEN VAD via ONNX Runtime for speech detection.
-Model: TEN-framework/ten-vad on HuggingFace
+Uses TEN VAD via pip package (wraps native library).
+Install: pip install ten-vad
 '''
 
 import os
 import wave
-import struct
 from pathlib import Path
 from typing import List, Tuple
 import numpy as np
 
 try:
-    import onnxruntime as ort
-    ONNX_AVAILABLE = True
+    from ten_vad import TenVad as TenVadNative
+    TEN_VAD_AVAILABLE = True
 except ImportError:
-    ONNX_AVAILABLE = False
-
-
-DEFAULT_VAD_MODEL_PATH = Path('/app/models/ten-vad.onnx')
-if not DEFAULT_VAD_MODEL_PATH.exists():
-    DEFAULT_VAD_MODEL_PATH = Path(__file__).parent / 'models' / 'ten-vad.onnx'
+    TEN_VAD_AVAILABLE = False
 
 
 class TenVAD:
     '''
-    TEN VAD wrapper using ONNX Runtime.
+    TEN VAD wrapper.
     
     Usage:
         vad = TenVAD(hop_size=256, threshold=0.5)
@@ -36,27 +30,19 @@ class TenVAD:
             prob, is_speech = vad.process(frame)
     '''
     
-    def __init__(self, hop_size: int = 256, threshold: float = 0.5, model_path: str = None):
-        if not ONNX_AVAILABLE:
-            raise ImportError("onnxruntime is required. Install with: pip install onnxruntime")
+    def __init__(self, hop_size: int = 256, threshold: float = 0.5):
+        if not TEN_VAD_AVAILABLE:
+            raise ImportError("ten-vad is required. Install with: pip install ten-vad")
         
         self.hop_size = hop_size
         self.threshold = threshold
         self.sample_rate = 16000
         
-        model_path = model_path or str(DEFAULT_VAD_MODEL_PATH)
-        if not os.path.exists(model_path):
-            raise FileNotFoundError(f"VAD model not found at {model_path}")
-        
-        self.session = ort.InferenceSession(model_path)
-        self.input_name = self.session.get_inputs()[0].name
-        
-        self.reset()
+        self.vad = TenVadNative(hop_size, threshold)
     
     def reset(self):
         '''Reset internal state for new audio stream.'''
-        self.h1 = np.zeros((2, 1, 64), dtype=np.float32)
-        self.h2 = np.zeros((2, 1, 128), dtype=np.float32)
+        self.vad = TenVadNative(self.hop_size, self.threshold)
     
     def process(self, audio_frame: np.ndarray) -> Tuple[float, bool]:
         '''
@@ -71,25 +57,10 @@ class TenVAD:
         if len(audio_frame) != self.hop_size:
             raise ValueError(f"Expected frame size {self.hop_size}, got {len(audio_frame)}")
         
-        audio_float = audio_frame.astype(np.float32) / 32768.0
-        audio_input = audio_float.reshape(1, -1)
+        audio_int16 = audio_frame.astype(np.int16)
+        prob, flag = self.vad.process(audio_int16)
         
-        outputs = self.session.run(
-            None,
-            {
-                self.input_name: audio_input,
-                'h1': self.h1,
-                'h2': self.h2
-            }
-        )
-        
-        prob = float(outputs[0][0][0])
-        is_speech = prob > self.threshold
-        
-        self.h1 = outputs[1]
-        self.h2 = outputs[2]
-        
-        return prob, is_speech
+        return float(prob), bool(flag)
     
     def process_file(self, wav_path: str) -> List[Tuple[int, float, bool]]:
         '''
@@ -132,7 +103,6 @@ class TenVAD:
 
 def detect_speech_segments(
     wav_path: str,
-    model_path: str = None,
     hop_size: int = 256,
     threshold: float = 0.5,
     min_speech_duration_ms: int = 250,
@@ -143,7 +113,6 @@ def detect_speech_segments(
     
     Args:
         wav_path: Path to WAV file (16kHz, mono)
-        model_path: Path to VAD ONNX model
         hop_size: Frame size in samples (256 = 16ms at 16kHz)
         threshold: Speech probability threshold
         min_speech_duration_ms: Minimum speech segment duration
@@ -152,7 +121,7 @@ def detect_speech_segments(
     Returns:
         List of (start_ms, end_ms) tuples for speech segments
     '''
-    vad = TenVAD(hop_size=hop_size, threshold=threshold, model_path=model_path)
+    vad = TenVAD(hop_size=hop_size, threshold=threshold)
     results = vad.process_file(wav_path)
     
     hop_ms = int(hop_size * 1000 / 16000)
@@ -163,6 +132,7 @@ def detect_speech_segments(
     in_speech = False
     speech_start = 0
     silence_count = 0
+    sample_offset = 0
     
     for sample_offset, prob, is_speech in results:
         time_ms = int(sample_offset * 1000 / 16000)
@@ -183,7 +153,7 @@ def detect_speech_segments(
                     silence_count = 0
     
     if in_speech:
-        speech_end = int(sample_offset * 1000 / 16000)
+        speech_end = int(sample_offset * 1000 / 16000) if sample_offset > 0 else 0
         if (speech_end - speech_start) >= min_speech_duration_ms:
             segments.append((speech_start, speech_end))
     

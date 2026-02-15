@@ -25,7 +25,6 @@ from typing import Generator, List, Dict, Any, Tuple, Optional
 PROJECT_ROOT = Path(os.getenv('PROJECT_ROOT', str(Path(__file__).resolve().parent.parent.parent)))
 ASR_MODEL_PATH = PROJECT_ROOT / 'models' / 'qwen3-asr-0.6b-q4_0.bin'
 ALIGNER_MODEL_PATH = PROJECT_ROOT / 'models' / 'qwen3-forced-aligner-0.6b-q4_0.bin'
-VAD_MODEL_PATH = PROJECT_ROOT / 'models' / 'ten-vad.onnx'
 
 INFERENCE_THREADS = int(os.getenv('INFERENCE_THREADS', '6'))
 CONTEXT_LENGTH = os.getenv('CONTEXT_LENGTH', '4096')
@@ -306,8 +305,7 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
         chunker = AudioChunker(
             audio_path,
             target_chunk_duration_s=TARGET_CHUNK_DURATION_SEC,
-            max_chunk_duration_s=MAX_CHUNK_DURATION_SEC,
-            vad_model_path=str(VAD_MODEL_PATH) if VAD_MODEL_PATH.exists() else None
+            max_chunk_duration_s=MAX_CHUNK_DURATION_SEC
         )
         chunks = chunker.prepare()
     except Exception as e:
