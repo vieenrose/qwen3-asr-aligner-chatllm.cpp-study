@@ -28,11 +28,9 @@ ENV LD_LIBRARY_PATH=/app/lib
 
 RUN pip install --no-cache-dir huggingface_hub && \
     mkdir -p /app/models && \
-    huggingface-cli download Luigi/Qwen3-ASR-0.6B-chatllm-quantized \
-        qwen3-asr-0.6b-q4_0.bin \
-        qwen3-forced-aligner-0.6b-q4_0.bin \
-        --local-dir /app/models \
-        --local-dir-use-symlinks False
+    python -c "from huggingface_hub import hf_hub_download; \
+    hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-asr-0.6b-q4_0.bin', local_dir='/app/models'); \
+    hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-forced-aligner-0.6b-q4_0.bin', local_dir='/app/models')"
 
 COPY Chinese-ITN/ /app/Chinese-ITN/
 
