@@ -9,17 +9,10 @@ Uses VAD to segment audio into ~20 second chunks with speech-aware boundaries.
 import os
 import subprocess
 import tempfile
-import time
 from pathlib import Path
 from typing import List, Tuple
 
 from vad import detect_speech_segments
-
-DEBUG = os.getenv('DEBUG', '1') == '1'
-
-def _debug(msg: str):
-    if DEBUG:
-        print(f"[CHUNKER] {msg}", flush=True)
 
 
 DEFAULT_TARGET_CHUNK_DURATION_MS = 20_000
@@ -29,8 +22,6 @@ DEFAULT_MIN_CHUNK_DURATION_MS = 5_000
 
 def convert_to_wav(input_path: str, output_path: str) -> float:
     '''Convert audio to 16kHz mono WAV.'''
-    _debug(f"convert_to_wav START: {input_path}")
-    _start = time.time()
     cmd = [
         'ffmpeg', '-y', '-i', input_path,
         '-ar', '16000',
@@ -45,9 +36,7 @@ def convert_to_wav(input_path: str, output_path: str) -> float:
          '-of', 'default=noprint_wrappers=1:nokey=1', output_path],
         capture_output=True, text=True, check=True
     )
-    duration = float(result.stdout.strip())
-    _debug(f"convert_to_wav END: {duration:.2f}s in {time.time()-_start:.2f}s")
-    return duration
+    return float(result.stdout.strip())
 
 
 def get_audio_duration(audio_path: str) -> float:
@@ -154,21 +143,16 @@ def chunk_audio(
     Returns:
         (chunks, wav_path): List of (start_ms, end_ms) tuples and path to converted WAV
     '''
-    _debug(f"chunk_audio START: {audio_path}")
-    _start = time.time()
-    
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
         wav_path = tmp.name
     
     duration_s = convert_to_wav(audio_path, wav_path)
     duration_ms = int(duration_s * 1000)
-    _debug(f"Audio duration: {duration_s:.2f}s")
     
     speech_segments = detect_speech_segments(
         wav_path,
         threshold=vad_threshold
     )
-    _debug(f"Speech segments found: {len(speech_segments)}")
     
     chunks = create_chunks_from_segments(
         speech_segments,
@@ -178,7 +162,6 @@ def chunk_audio(
         min_duration_ms=int(min_chunk_duration_s * 1000)
     )
     
-    _debug(f"chunk_audio END: {len(chunks)} chunks in {time.time()-_start:.2f}s")
     return chunks, wav_path
 
 

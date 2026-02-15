@@ -9,16 +9,9 @@ Install: pip install ten-vad
 
 import os
 import wave
-import time
 from pathlib import Path
 from typing import List, Tuple
 import numpy as np
-
-DEBUG = os.getenv('DEBUG', '1') == '1'
-
-def _debug(msg: str):
-    if DEBUG:
-        print(f"[VAD] {msg}", flush=True)
 
 try:
     from ten_vad import TenVad as TenVadNative
@@ -80,8 +73,6 @@ class TenVAD:
             List of (sample_offset, probability, is_speech) tuples
         '''
         self.reset()
-        _start = time.time()
-        _debug(f"process_file START: {wav_path}")
         
         with wave.open(wav_path, 'rb') as wf:
             if wf.getframerate() != self.sample_rate:
@@ -107,7 +98,6 @@ class TenVAD:
                 results.append((sample_offset, prob, is_speech))
                 sample_offset += self.hop_size
             
-            _debug(f"process_file END: {len(results)} frames in {time.time()-_start:.2f}s")
             return results
 
 
@@ -131,12 +121,8 @@ def detect_speech_segments(
     Returns:
         List of (start_ms, end_ms) tuples for speech segments
     '''
-    _start = time.time()
-    _debug(f"detect_speech_segments START: threshold={threshold}")
-    
     vad = TenVAD(hop_size=hop_size, threshold=threshold)
     results = vad.process_file(wav_path)
-    _debug(f"VAD frames processed: {len(results)}")
     
     hop_ms = int(hop_size * 1000 / 16000)
     min_speech_frames = min_speech_duration_ms // hop_ms
@@ -171,7 +157,6 @@ def detect_speech_segments(
         if (speech_end - speech_start) >= min_speech_duration_ms:
             segments.append((speech_start, speech_end))
     
-    _debug(f"detect_speech_segments END: {len(segments)} segments in {time.time()-_start:.2f}s")
     return segments
 
 

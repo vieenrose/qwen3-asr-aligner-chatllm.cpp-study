@@ -9,7 +9,6 @@ Extends exp-7 to handle long audio by:
 3. Processing each chunk through the ASR + alignment pipeline
 4. Accumulating results with proper timestamp offsets
 
-Optimized: Models loaded once per phase (not per chunk).
 Generator-based for real-time UI updates.
 '''
 
@@ -33,12 +32,6 @@ CONTEXT_LENGTH = os.getenv('CONTEXT_LENGTH', '4096')
 CHUNK_THRESHOLD_SEC = 30.0
 TARGET_CHUNK_DURATION_SEC = 20.0
 MAX_CHUNK_DURATION_SEC = 30.0
-
-DEBUG = os.getenv('DEBUG', '1') == '1'
-
-def _debug(msg: str):
-    if DEBUG:
-        print(f"[PIPELINE] {msg}", flush=True)
 
 sys.path.insert(0, str(PROJECT_ROOT / 'chatllm.cpp' / 'bindings'))
 sys.path.insert(0, str(PROJECT_ROOT / 'chatllm.cpp' / 'scripts'))
@@ -167,270 +160,123 @@ def generate_srt_content(alignment: List[Dict], offset_ms: int = 0) -> str:
     return "\n".join(lines)
 
 
-def run_batch_asr(
-    chunk_data: List[Dict],
+def run_single_chunk_asr(
+    wav_path: str,
     bindings_path: str,
-    pipeline_start: float
+    lib_asr: LibChatLLM
 ) -> Generator[Dict[str, Any], None, None]:
-    '''
-    Run ASR on all chunks with model loaded once.
+    '''Run ASR on a single chunk. Returns (transcript, detected_lang).'''
     
-    Args:
-        chunk_data: List of chunk dicts with 'wav_path', 'start_ms', 'end_ms'
-        bindings_path: Path to chatllm bindings
-        pipeline_start: Start time for debug logging
-    
-    Yields:
-        Per-chunk progress and results
-    '''
-    _debug(f"run_batch_asr: Loading ASR model ONCE for {len(chunk_data)} chunks")
-    load_start = time.time()
-    
-    lib_asr = LibChatLLM(bindings_path)
     llm_params = get_asr_params()
     chat = ChatLLM(lib_asr, llm_params)
     
-    load_time = time.time() - load_start
-    _debug(f"run_batch_asr: Model loaded in {load_time:.1f}s")
+    queue = Queue()
+    chat.out_queue = queue
     
-    accumulated_transcript = ""
-    accumulated_itn = ""
-    detected_language = "Unknown"
-    asr_ttft_samples = []
-    asr_speed_samples = []
+    user_input = f'{{{{audio:{wav_path}}}}}'
     
-    for chunk_idx, chunk in enumerate(chunk_data):
-        wav_path = chunk['wav_path']
-        chunk_num = chunk_idx + 1
-        total_chunks = len(chunk_data)
-        
-        _debug(f"run_batch_asr: Chunk {chunk_num}/{total_chunks} - restart()")
-        chat.restart()
-        
-        queue = Queue()
-        chat.out_queue = queue
-        
-        user_input = f'{{{{audio:{wav_path}}}}}'
-        
-        chunk_asr_start = time.time()
-        first_token_time = None
-        chunks = []
-        
-        result = lib_asr.chat(chat._chat, user_input)
-        if result != 0:
-            chat.destroy()
-            yield {'stage': 'error', 'message': f'ASR failed with code: {result}'}
-            return
-        
-        while True:
-            try:
-                item = queue.get(timeout=300.0)
-                if isinstance(item, LLMChatChunk):
-                    chunk_text = item.chunk
-                    if chunk_text is None or chunk_text in ['<asr_text>', '</asr_text>', 'language']:
-                        continue
-                    chunks.append(chunk_text)
-                    raw_output = ''.join(chunks)
-                    detected_lang, _ = extract_language(raw_output)
-                    detected_language = detected_lang
-                    
-                    if first_token_time is None and chunk_text:
-                        first_token_time = time.time()
-                    
-                    yield {
-                        'stage': 'chunk_transcribing',
-                        'message': f'Chunk {chunk_num}/{total_chunks}: Transcribing...',
-                        'partial_transcript': raw_output,
-                        'accumulated_transcript': accumulated_transcript,
-                        'language': detected_language,
-                        'chunk_index': chunk_idx,
-                        'total_chunks': total_chunks
-                    }
-                elif isinstance(item, LLMChatDone):
-                    break
-            except Empty:
+    result = lib_asr.chat(chat._chat, user_input)
+    if result != 0:
+        chat.destroy()
+        yield {'stage': 'error', 'message': f'ASR failed with code: {result}'}
+        return
+    
+    chunks = []
+    while True:
+        try:
+            item = queue.get(timeout=300.0)
+            if isinstance(item, LLMChatChunk):
+                chunk = item.chunk
+                if chunk is None or chunk in ['<asr_text>', '</asr_text>', 'language']:
+                    continue
+                chunks.append(chunk)
+                raw_output = ''.join(chunks)
+                detected_lang, _ = extract_language(raw_output)
+                yield {
+                    'stage': 'chunk_transcribing',
+                    'text': raw_output,
+                    'language': detected_lang
+                }
+            elif isinstance(item, LLMChatDone):
                 break
-        
-        chunk_asr_end = time.time()
-        raw_output = ''.join(chunks)
-        _, chunk_transcript = extract_language(raw_output)
-        
-        if first_token_time:
-            ttft_ms = (first_token_time - chunk_asr_start) * 1000
-            gen_time = chunk_asr_end - first_token_time
-            speed = len(chunk_transcript) / gen_time if gen_time > 0 else 0
-            asr_ttft_samples.append(ttft_ms)
-            asr_speed_samples.append(speed)
-        
-        _debug(f"run_batch_asr: Chunk {chunk_num} done, {len(chunk_transcript)} chars in {chunk_asr_end - chunk_asr_start:.1f}s")
-        
-        accumulated_transcript += chunk_transcript
-        
-        yield {
-            'stage': 'chunk_itn',
-            'message': f'Chunk {chunk_num}/{total_chunks}: Applying ITN...',
-            'accumulated_transcript': accumulated_transcript,
-            'chunk_index': chunk_idx,
-            'total_chunks': total_chunks
-        }
-        
-        chunk_itn = apply_itn(chunk_transcript)
-        accumulated_itn += chunk_itn
-        
-        yield {
-            'stage': 'chunk_itn_done',
-            'message': f'Chunk {chunk_num}/{total_chunks}: ITN complete',
-            'chunk_transcript': chunk_transcript,
-            'chunk_itn': chunk_itn,
-            'accumulated_transcript': accumulated_transcript,
-            'accumulated_itn': accumulated_itn,
-            'language': detected_language,
-            'chunk_index': chunk_idx,
-            'total_chunks': total_chunks
-        }
+        except Empty:
+            break
     
-    _debug(f"run_batch_asr: All chunks done, destroying model")
+    raw_output = ''.join(chunks)
+    detected_lang, transcript = extract_language(raw_output)
+    
     chat.destroy()
     
     yield {
-        'stage': 'batch_asr_complete',
-        'accumulated_transcript': accumulated_transcript,
-        'accumulated_itn': accumulated_itn,
-        'language': detected_language,
-        'asr_ttft_samples': asr_ttft_samples,
-        'asr_speed_samples': asr_speed_samples,
-        'model_load_time': load_time
+        'stage': 'chunk_transcribed',
+        'text': transcript,
+        'language': detected_lang
     }
 
 
-def run_batch_alignment(
-    chunk_data: List[Dict],
+def run_single_chunk_alignment(
+    wav_path: str,
+    itn_transcript: str,
     bindings_path: str,
-    pipeline_start: float
+    lib_aligner: LibChatLLM
 ) -> Generator[Dict[str, Any], None, None]:
-    '''
-    Run alignment on all chunks with model loaded once.
+    '''Run forced alignment on a single chunk. Returns alignment list.'''
     
-    Args:
-        chunk_data: List of chunk dicts with 'wav_path', 'start_ms', 'end_ms', 'itn_transcript'
-        bindings_path: Path to chatllm bindings
-        pipeline_start: Start time for debug logging
+    tokens = tokenize_with_jieba(itn_transcript)
     
-    Yields:
-        Per-chunk progress and accumulated SRT
-    '''
-    _debug(f"run_batch_alignment: Loading Aligner model ONCE for {len(chunk_data)} chunks")
-    load_start = time.time()
+    if not tokens:
+        yield {'stage': 'chunk_aligned', 'alignment': []}
+        return
     
-    lib_aligner = LibChatLLM(bindings_path)
     llm_params = get_aligner_params()
     chat = ChatLLM(lib_aligner, llm_params)
     
-    load_time = time.time() - load_start
-    _debug(f"run_batch_alignment: Model loaded in {load_time:.1f}s")
+    queue = Queue()
+    chat.out_queue = queue
     
-    accumulated_alignment = []
+    delimiter = '|'
+    tokenized_text = delimiter.join(tokens)
+    user_input = f'{{{{audio:{wav_path}}}}} {tokenized_text}'
     
-    for chunk_idx, chunk in enumerate(chunk_data):
-        wav_path = chunk['wav_path']
-        itn_transcript = chunk['itn_transcript']
-        start_ms = chunk['start_ms']
-        chunk_num = chunk_idx + 1
-        total_chunks = len(chunk_data)
-        
-        tokens = tokenize_with_jieba(itn_transcript)
-        
-        if not tokens:
-            _debug(f"run_batch_alignment: Chunk {chunk_num} - no tokens, skipping")
-            yield {
-                'stage': 'chunk_aligned',
-                'chunk_index': chunk_idx,
-                'total_chunks': total_chunks,
-                'alignment_count': len(accumulated_alignment),
-                'srt': generate_srt_content(accumulated_alignment)
-            }
-            continue
-        
-        _debug(f"run_batch_alignment: Chunk {chunk_num}/{total_chunks} - {len(tokens)} tokens, restart()")
-        chat.restart()
-        
-        queue = Queue()
-        chat.out_queue = queue
-        
-        delimiter = '|'
-        tokenized_text = delimiter.join(tokens)
-        user_input = f'{{{{audio:{wav_path}}}}} {tokenized_text}'
-        
-        yield {
-            'stage': 'chunk_aligning',
-            'message': f'Chunk {chunk_num}/{total_chunks}: Aligning...',
-            'chunk_index': chunk_idx,
-            'total_chunks': total_chunks
-        }
-        
-        align_start = time.time()
-        result = lib_aligner.chat(chat._chat, user_input)
-        if result != 0:
-            chat.destroy()
-            yield {'stage': 'error', 'message': f'Alignment failed with code: {result}'}
-            return
-        
-        chunks = []
-        while True:
-            try:
-                item = queue.get(timeout=300.0)
-                if isinstance(item, LLMChatChunk):
-                    chunk_text = item.chunk
-                    if chunk_text is None:
-                        continue
-                    chunks.append(chunk_text)
-                elif isinstance(item, LLMChatDone):
-                    break
-            except Empty:
-                break
-        
-        output = ''.join(chunks)
-        
+    result = lib_aligner.chat(chat._chat, user_input)
+    if result != 0:
+        chat.destroy()
+        yield {'stage': 'error', 'message': f'Alignment failed with code: {result}'}
+        return
+    
+    chunks = []
+    while True:
         try:
-            chunk_alignment = json.loads(output)
-        except json.JSONDecodeError:
-            chunk_alignment = []
-        
-        for entry in chunk_alignment:
-            entry['start'] = entry.get('start', 0) + start_ms
-            entry['end'] = entry.get('end', 0) + start_ms
-        
-        accumulated_alignment.extend(chunk_alignment)
-        
-        _debug(f"run_batch_alignment: Chunk {chunk_num} done, {len(chunk_alignment)} words in {time.time()-align_start:.1f}s")
-        
-        yield {
-            'stage': 'chunk_complete',
-            'message': f'Chunk {chunk_num}/{total_chunks}: Complete',
-            'alignment_count': len(accumulated_alignment),
-            'chunk_index': chunk_idx,
-            'total_chunks': total_chunks,
-            'srt': generate_srt_content(accumulated_alignment)
-        }
+            item = queue.get(timeout=300.0)
+            if isinstance(item, LLMChatChunk):
+                chunk = item.chunk
+                if chunk is None:
+                    continue
+                chunks.append(chunk)
+            elif isinstance(item, LLMChatDone):
+                break
+        except Empty:
+            break
     
-    _debug(f"run_batch_alignment: All chunks done, destroying model")
+    output = ''.join(chunks)
     chat.destroy()
     
-    yield {
-        'stage': 'batch_alignment_complete',
-        'alignment': accumulated_alignment,
-        'model_load_time': load_time
-    }
+    try:
+        alignment = json.loads(output)
+    except json.JSONDecodeError:
+        alignment = []
+    
+    yield {'stage': 'chunk_aligned', 'alignment': alignment}
 
 
 def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, None]:
     '''
-    Chunked pipeline for long audio (optimized: models loaded once per phase).
+    Chunked pipeline for long audio.
     
-    Phase 1: Load ASR → Process all chunks → Unload ASR
-    Phase 2: Load Aligner → Process all chunks → Unload Aligner
-    
-    Chunk WAV files are cached between phases.
+    1. Detect speech segments with VAD
+    2. Create chunks (~20s each)
+    3. Process each chunk: ASR -> ITN -> Alignment
+    4. Accumulate results with timestamp offsets
     '''
     
     metrics = {
@@ -440,20 +286,21 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
         'total_alignment_words': 0,
         'avg_asr_ttft_ms': 0,
         'avg_asr_speed_chars_per_sec': 0,
-        'asr_phase_time_sec': 0,
-        'alignment_phase_time_sec': 0,
-        'model_load_time_asr_sec': 0,
-        'model_load_time_aligner_sec': 0,
         'total_time_sec': 0,
     }
     
     pipeline_start = time.time()
-    _debug(f"=== PIPELINE START: {audio_path} ===")
     
-    _debug(f"+0.0s: Yielding 'preparing'")
+    accumulated_transcript = ""
+    accumulated_itn = ""
+    accumulated_alignment = []
+    detected_language = "Unknown"
+    
+    asr_ttft_samples = []
+    asr_speed_samples = []
+    
     yield {'stage': 'preparing', 'message': 'Analyzing audio and detecting speech segments...'}
     
-    _debug(f"+{time.time()-pipeline_start:.1f}s: Starting VAD/chunking")
     try:
         chunker = AudioChunker(
             audio_path,
@@ -462,22 +309,17 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
         )
         chunks = chunker.prepare()
     except Exception as e:
-        _debug(f"+{time.time()-pipeline_start:.1f}s: EXCEPTION in chunking: {e}")
         yield {'stage': 'error', 'message': f'Failed to prepare chunks: {e}'}
         return
-    
-    _debug(f"+{time.time()-pipeline_start:.1f}s: VAD/chunking complete - {len(chunks)} chunks")
     
     metrics['audio_duration_sec'] = chunker.total_duration_s
     metrics['total_chunks'] = len(chunks)
     
     if not chunks:
-        _debug(f"+{time.time()-pipeline_start:.1f}s: No speech detected")
         yield {'stage': 'error', 'message': 'No speech detected in audio'}
         chunker.cleanup()
         return
     
-    _debug(f"+{time.time()-pipeline_start:.1f}s: Yielding 'chunks_ready'")
     yield {
         'stage': 'chunks_ready',
         'message': f'Found {len(chunks)} speech chunks ({chunker.total_duration_s:.1f}s total)',
@@ -485,136 +327,140 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
         'audio_duration': chunker.total_duration_s
     }
     
-    chunk_data = []
+    bindings_path = str(PROJECT_ROOT / 'chatllm.cpp' / 'bindings')
+    
+    yield {'stage': 'loading_asr', 'message': 'Loading ASR model...'}
+    lib_asr = LibChatLLM(bindings_path)
+    
+    yield {'stage': 'loading_aligner', 'message': 'Loading Forced Aligner model...'}
+    lib_aligner = LibChatLLM(bindings_path)
+    
     for chunk_idx, (start_ms, end_ms) in enumerate(chunks):
         chunk_info = chunker.get_chunk_info(chunk_idx)
+        
+        yield {
+            'stage': 'processing_chunk',
+            'message': f'Processing chunk {chunk_idx + 1}/{len(chunks)} ({chunk_info["start_s"]:.0f}s - {chunk_info["end_s"]:.0f}s)',
+            'chunk_index': chunk_idx,
+            'total_chunks': len(chunks),
+            'chunk_start_s': chunk_info['start_s'],
+            'chunk_end_s': chunk_info['end_s']
+        }
         
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
             chunk_wav_path = tmp.name
         
-        _debug(f"+{time.time()-pipeline_start:.1f}s: Extracting chunk {chunk_idx+1}/{len(chunks)} audio")
-        chunker.get_chunk_audio(chunk_idx, chunk_wav_path)
-        
-        chunk_data.append({
-            'index': chunk_idx,
-            'start_ms': start_ms,
-            'end_ms': end_ms,
-            'wav_path': chunk_wav_path,
-            'transcript': '',
-            'itn_transcript': '',
-            'alignment': []
-        })
+        try:
+            chunker.get_chunk_audio(chunk_idx, chunk_wav_path)
+            
+            chunk_asr_start = time.time()
+            first_token_time = None
+            chunk_transcript = ""
+            
+            for update in run_single_chunk_asr(chunk_wav_path, bindings_path, lib_asr):
+                if update['stage'] == 'chunk_transcribing':
+                    partial_text = update.get('text', '')
+                    detected_language = update.get('language', detected_language)
+                    
+                    yield {
+                        'stage': 'chunk_transcribing',
+                        'message': f'Chunk {chunk_idx + 1}/{len(chunks)}: Transcribing...',
+                        'partial_transcript': partial_text,
+                        'accumulated_transcript': accumulated_transcript,
+                        'language': detected_language,
+                        'chunk_index': chunk_idx,
+                        'total_chunks': len(chunks)
+                    }
+                    
+                    if first_token_time is None and partial_text:
+                        first_token_time = time.time()
+                    
+                elif update['stage'] == 'chunk_transcribed':
+                    chunk_transcript = update.get('text', '')
+                    detected_language = update.get('language', detected_language)
+                    
+                elif update['stage'] == 'error':
+                    yield update
+                    return
+            
+            chunk_asr_end = time.time()
+            
+            if first_token_time:
+                ttft_ms = (first_token_time - chunk_asr_start) * 1000
+                gen_time = chunk_asr_end - first_token_time
+                speed = len(chunk_transcript) / gen_time if gen_time > 0 else 0
+                asr_ttft_samples.append(ttft_ms)
+                asr_speed_samples.append(speed)
+            
+            accumulated_transcript += chunk_transcript
+            
+            yield {
+                'stage': 'chunk_itn',
+                'message': f'Chunk {chunk_idx + 1}/{len(chunks)}: Applying ITN...',
+                'accumulated_transcript': accumulated_transcript,
+                'chunk_index': chunk_idx,
+                'total_chunks': len(chunks)
+            }
+            
+            chunk_itn = apply_itn(chunk_transcript)
+            accumulated_itn += chunk_itn
+            
+            yield {
+                'stage': 'chunk_itn_done',
+                'message': f'Chunk {chunk_idx + 1}/{len(chunks)}: ITN complete',
+                'accumulated_itn': accumulated_itn,
+                'chunk_index': chunk_idx,
+                'total_chunks': len(chunks)
+            }
+            
+            yield {
+                'stage': 'chunk_aligning',
+                'message': f'Chunk {chunk_idx + 1}/{len(chunks)}: Aligning...',
+                'chunk_index': chunk_idx,
+                'total_chunks': len(chunks)
+            }
+            
+            for update in run_single_chunk_alignment(chunk_wav_path, chunk_itn, bindings_path, lib_aligner):
+                if update['stage'] == 'chunk_aligned':
+                    chunk_alignment = update.get('alignment', [])
+                    
+                    for entry in chunk_alignment:
+                        entry['start'] = entry.get('start', 0) + start_ms
+                        entry['end'] = entry.get('end', 0) + start_ms
+                    
+                    accumulated_alignment.extend(chunk_alignment)
+                    metrics['total_alignment_words'] += len(chunk_alignment)
+                    
+                elif update['stage'] == 'error':
+                    yield update
+                    return
+            
+            yield {
+                'stage': 'chunk_complete',
+                'message': f'Chunk {chunk_idx + 1}/{len(chunks)}: Complete',
+                'accumulated_transcript': accumulated_transcript,
+                'accumulated_itn': accumulated_itn,
+                'alignment_count': len(accumulated_alignment),
+                'chunk_index': chunk_idx,
+                'total_chunks': len(chunks),
+                'srt': generate_srt_content(accumulated_alignment)
+            }
+            
+        finally:
+            if os.path.exists(chunk_wav_path):
+                os.unlink(chunk_wav_path)
     
     chunker.cleanup()
-    _debug(f"+{time.time()-pipeline_start:.1f}s: All chunk WAVs extracted")
-    
-    bindings_path = str(PROJECT_ROOT / 'chatllm.cpp' / 'bindings')
-    
-    _debug(f"+{time.time()-pipeline_start:.1f}s: === PHASE 1: ASR ===")
-    _debug(f"+{time.time()-pipeline_start:.1f}s: Yielding 'loading_asr'")
-    yield {'stage': 'loading_asr', 'message': 'Loading ASR model...'}
-    
-    asr_phase_start = time.time()
-    asr_ttft_samples = []
-    asr_speed_samples = []
-    accumulated_transcript = ""
-    accumulated_itn = ""
-    detected_language = "Unknown"
-    
-    for update in run_batch_asr(chunk_data, bindings_path, pipeline_start):
-        if update['stage'] == 'chunk_transcribing':
-            yield {
-                'stage': 'chunk_transcribing',
-                'message': update['message'],
-                'partial_transcript': update['partial_transcript'],
-                'accumulated_transcript': update['accumulated_transcript'],
-                'language': update['language'],
-                'chunk_index': update['chunk_index'],
-                'total_chunks': update['total_chunks']
-            }
-        
-        elif update['stage'] == 'chunk_itn':
-            yield update
-        
-        elif update['stage'] == 'chunk_itn_done':
-            chunk_idx = update['chunk_index']
-            chunk_data[chunk_idx]['transcript'] = update['chunk_transcript']
-            chunk_data[chunk_idx]['itn_transcript'] = update['chunk_itn']
-            accumulated_transcript = update['accumulated_transcript']
-            accumulated_itn = update['accumulated_itn']
-            detected_language = update['language']
-            
-            yield update
-        
-        elif update['stage'] == 'batch_asr_complete':
-            accumulated_transcript = update['accumulated_transcript']
-            accumulated_itn = update['accumulated_itn']
-            detected_language = update['language']
-            asr_ttft_samples = update['asr_ttft_samples']
-            asr_speed_samples = update['asr_speed_samples']
-            metrics['model_load_time_asr_sec'] = update['model_load_time']
-        
-        elif update['stage'] == 'error':
-            _cleanup_chunk_wavs(chunk_data)
-            yield update
-            return
-    
-    asr_phase_end = time.time()
-    metrics['asr_phase_time_sec'] = asr_phase_end - asr_phase_start
-    _debug(f"+{time.time()-pipeline_start:.1f}s: === PHASE 1 COMPLETE ({metrics['asr_phase_time_sec']:.1f}s) ===")
     
     zh_tw_transcript = convert_to_zh_tw(accumulated_itn)
     
-    _debug(f"+{time.time()-pipeline_start:.1f}s: === PHASE 2: ALIGNMENT ===")
-    _debug(f"+{time.time()-pipeline_start:.1f}s: Yielding 'loading_aligner'")
-    yield {'stage': 'loading_aligner', 'message': 'Loading Forced Aligner model...'}
-    
-    align_phase_start = time.time()
-    accumulated_alignment = []
-    
-    for update in run_batch_alignment(chunk_data, bindings_path, pipeline_start):
-        if update['stage'] == 'chunk_aligning':
-            yield update
-        
-        elif update['stage'] == 'chunk_aligned':
-            yield {
-                'stage': 'chunk_complete',
-                'message': f"Chunk {update['chunk_index']+1}/{update['total_chunks']}: Complete (no tokens)",
-                'alignment_count': update['alignment_count'],
-                'chunk_index': update['chunk_index'],
-                'total_chunks': update['total_chunks'],
-                'srt': update['srt']
-            }
-        
-        elif update['stage'] == 'chunk_complete':
-            accumulated_alignment = generate_srt_content([]) 
-            yield update
-        
-        elif update['stage'] == 'batch_alignment_complete':
-            accumulated_alignment = update['alignment']
-            metrics['model_load_time_aligner_sec'] = update['model_load_time']
-        
-        elif update['stage'] == 'error':
-            _cleanup_chunk_wavs(chunk_data)
-            yield update
-            return
-    
-    align_phase_end = time.time()
-    metrics['alignment_phase_time_sec'] = align_phase_end - align_phase_start
-    _debug(f"+{time.time()-pipeline_start:.1f}s: === PHASE 2 COMPLETE ({metrics['alignment_phase_time_sec']:.1f}s) ===")
-    
-    _cleanup_chunk_wavs(chunk_data)
-    _debug(f"+{time.time()-pipeline_start:.1f}s: Cleaned up chunk WAVs")
-    
     metrics['total_asr_chars'] = len(accumulated_transcript)
-    metrics['total_alignment_words'] = len(accumulated_alignment)
     metrics['avg_asr_ttft_ms'] = sum(asr_ttft_samples) / len(asr_ttft_samples) if asr_ttft_samples else 0
     metrics['avg_asr_speed_chars_per_sec'] = sum(asr_speed_samples) / len(asr_speed_samples) if asr_speed_samples else 0
     metrics['total_time_sec'] = time.time() - pipeline_start
     
     final_srt = generate_srt_content(accumulated_alignment)
     
-    _debug(f"+{time.time()-pipeline_start:.1f}s: === PIPELINE COMPLETE ===")
     yield {
         'stage': 'done',
         'message': f'Complete! Processed {len(chunks)} chunks in {metrics["total_time_sec"]:.1f}s',
@@ -626,17 +472,6 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
         'alignment_count': len(accumulated_alignment),
         'metrics': metrics
     }
-
-
-def _cleanup_chunk_wavs(chunk_data: List[Dict]):
-    '''Clean up temporary chunk WAV files.'''
-    for chunk in chunk_data:
-        wav_path = chunk.get('wav_path')
-        if wav_path and os.path.exists(wav_path):
-            try:
-                os.unlink(wav_path)
-            except:
-                pass
 
 
 def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, None]:

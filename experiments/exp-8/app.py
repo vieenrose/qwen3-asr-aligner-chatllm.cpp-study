@@ -16,15 +16,8 @@ Gradio WebUI with:
 
 import os
 import sys
-import time
 import gradio as gr
 from pathlib import Path
-
-DEBUG = os.getenv('DEBUG', '1') == '1'
-
-def _debug(msg: str):
-    if DEBUG:
-        print(f"[GRADIO] {msg}", flush=True)
 
 PROJECT_ROOT = Path(os.getenv('PROJECT_ROOT', str(Path(__file__).resolve().parent.parent.parent)))
 SAMPLES_DIR = PROJECT_ROOT / 'samples'
@@ -57,17 +50,12 @@ def transcribe_audio(audio_path: str):
     Generator function that yields updates for Gradio streaming.
     Returns tuple of updates for all output components.
     '''
-    _gradio_start = time.time()
-    _yield_count = 0
-    
     if audio_path is None:
         yield (
             "Please upload an audio file or select a sample.",
             "", "", "", "", "", None, ""
         )
         return
-    
-    _debug(f"transcribe_audio START: {audio_path}")
     
     transcript = ""
     language = "Detecting..."
@@ -80,8 +68,6 @@ def transcribe_audio(audio_path: str):
     chunk_progress = ""
     total_chunks = 0
     
-    _yield_count += 1
-    _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - 'Starting pipeline...'")
     yield (
         "Starting pipeline...",
         transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text
@@ -91,32 +77,23 @@ def transcribe_audio(audio_path: str):
         for update in run_pipeline_streaming(audio_path):
             stage = update.get('stage', '')
             message = update.get('message', '')
-            _debug(f"+{time.time()-_gradio_start:.1f}s: Received stage='{stage}' from pipeline")
             
             if stage == 'preparing':
                 status = "Analyzing audio..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'chunks_ready':
                 total_chunks = update.get('total_chunks', 0)
                 audio_dur = update.get('audio_duration', 0)
                 status = f"Found {total_chunks} chunks ({format_time(audio_dur)} total)"
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'loading_asr':
                 status = "Loading ASR model..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'loading_aligner':
                 status = "Loading Forced Aligner..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'processing_chunk':
@@ -126,8 +103,6 @@ def transcribe_audio(audio_path: str):
                 end_s = update.get('chunk_end_s', 0)
                 chunk_progress = f"Chunk {chunk_idx}/{total}"
                 status = f"Processing {chunk_progress} ({format_time(start_s)} - {format_time(end_s)})"
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'chunk_transcribing':
@@ -138,28 +113,20 @@ def transcribe_audio(audio_path: str):
                 total = update.get('total_chunks', 1)
                 status = f"Transcribing {chunk_progress}..."
                 transcript = accumulated
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}' ({len(transcript)} chars)")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'chunk_itn':
                 accumulated = update.get('accumulated_transcript', transcript)
                 status = f"ITN {chunk_progress}..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'chunk_itn_done':
                 itn_text = update.get('accumulated_itn', itn_text)
                 status = f"ITN {chunk_progress} done"
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'chunk_aligning':
                 status = f"Aligning {chunk_progress}..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'chunk_complete':
@@ -174,68 +141,48 @@ def transcribe_audio(audio_path: str):
                     srt_path.write_text(srt_content, encoding='utf-8')
                     srt_file = str(srt_path)
                 
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'converting':
                 status = f"Converting: {message}"
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'transcribing':
                 transcript = update.get('text', '')
                 language = update.get('language', 'Detecting...')
                 status = "Transcribing..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'transcribed':
                 transcript = update.get('text', '')
                 language = update.get('language', 'Unknown')
                 status = "Transcription complete"
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'itn':
                 status = "Applying Inverse Text Normalization..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'itn_done':
                 itn_text = update.get('text', '')
                 status = "ITN complete"
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'tokenizing':
                 status = "Tokenizing with Jieba..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'tokenized':
                 status = message
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'aligning':
                 status = "Aligning words to audio..."
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'aligned':
                 count = update.get('alignment_count', 0)
                 status = f"Aligned {count} words"
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'done':
@@ -252,8 +199,6 @@ def transcribe_audio(audio_path: str):
                             f"Avg TTFT: {metrics.get('avg_asr_ttft_ms', 0):.0f}ms\n"
                             f"Avg Speed: {metrics.get('avg_asr_speed_chars_per_sec', 0):.0f} chars/sec\n"
                             f"Alignment Words: {metrics.get('total_alignment_words', 0)}\n"
-                            f"ASR Phase: {format_time(metrics.get('asr_phase_time_sec', 0))}\n"
-                            f"Align Phase: {format_time(metrics.get('alignment_phase_time_sec', 0))}\n"
                             f"Total Time: {format_time(metrics.get('total_time_sec', 0))}"
                         )
                     else:
@@ -271,20 +216,14 @@ def transcribe_audio(audio_path: str):
                     srt_file = str(srt_path)
                 
                 status = f"Done! {message}"
-                _yield_count += 1
-                _debug(f"+{time.time()-_gradio_start:.1f}s: Yield #{_yield_count} - DONE ({_yield_count} total yields)")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'error':
                 status = f"Error: {message}"
-                _debug(f"+{time.time()-_gradio_start:.1f}s: ERROR - '{status}'")
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
                 return
     
     except Exception as e:
-        _debug(f"+{time.time()-_gradio_start:.1f}s: EXCEPTION - {e}")
-        import traceback
-        _debug(traceback.format_exc())
         yield (
             f"Error: {str(e)}",
             transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text
