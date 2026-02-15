@@ -19,7 +19,7 @@ import sys
 import gradio as gr
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(os.getenv('PROJECT_ROOT', str(Path(__file__).resolve().parent.parent.parent)))
 SAMPLES_DIR = PROJECT_ROOT / 'samples'
 
 SAMPLE_AUDIOS = {}

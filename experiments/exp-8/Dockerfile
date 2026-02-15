@@ -28,28 +28,28 @@ ENV LD_LIBRARY_PATH=/app/lib
 
 RUN pip install --no-cache-dir huggingface_hub && \
     mkdir -p /app/models && \
+    mkdir -p /app/samples && \
     python -c "from huggingface_hub import hf_hub_download; \
     hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-asr-0.6b-q4_0.bin', local_dir='/app/models'); \
     hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-forced-aligner-0.6b-q4_0.bin', local_dir='/app/models'); \
-    hf_hub_download('TEN-framework/ten-vad', 'onnx_model/ten-vad.onnx', local_dir='/app/models')"
+    hf_hub_download('TEN-framework/ten-vad', 'onnx_model/ten-vad.onnx', local_dir='/app/models'); \
+    hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'samples/phoneNumber1-zh-TW.wav', local_dir='/app'); \
+    hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'samples/news-zh.mp3', local_dir='/app')"
 
-COPY Chinese-ITN/ /app/Chinese-ITN/
+RUN git clone --depth 1 https://github.com/HaujetZhao/Chinese-ITN /app/Chinese-ITN
 
-COPY experiments/exp-8/ /app/experiments/exp-8/
-
-RUN mkdir -p /app/samples
-COPY samples/phoneNumber1-zh-TW.wav /app/samples/
-COPY samples/news-zh.mp3 /app/samples/
+COPY . /app/app/
 
 RUN mkdir -p /app/bindings && \
     cp /app/chatllm.cpp/bindings/libchatllm.so /app/bindings/ && \
     cp /app/chatllm.cpp/bindings/chatllm.py /app/bindings/
 
-RUN pip install --no-cache-dir -r /app/experiments/exp-8/requirements.txt
+RUN pip install --no-cache-dir -r /app/app/requirements.txt
 
-WORKDIR /app/experiments/exp-8
+WORKDIR /app/app
 
 ENV PYTHONPATH=/app/bindings:/app/Chinese-ITN:/app/chatllm.cpp/scripts
+ENV PROJECT_ROOT=/app
 ENV INFERENCE_THREADS=2
 
 EXPOSE 7860

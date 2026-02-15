@@ -22,7 +22,7 @@ from pathlib import Path
 from queue import Queue, Empty
 from typing import Generator, List, Dict, Any, Tuple, Optional
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(os.getenv('PROJECT_ROOT', str(Path(__file__).resolve().parent.parent.parent)))
 ASR_MODEL_PATH = PROJECT_ROOT / 'models' / 'qwen3-asr-0.6b-q4_0.bin'
 ALIGNER_MODEL_PATH = PROJECT_ROOT / 'models' / 'qwen3-forced-aligner-0.6b-q4_0.bin'
 VAD_MODEL_PATH = PROJECT_ROOT / 'models' / 'ten-vad.onnx'
