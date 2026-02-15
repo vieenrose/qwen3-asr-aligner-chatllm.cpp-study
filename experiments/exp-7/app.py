@@ -38,7 +38,7 @@ def transcribe_audio(audio_path: str):
     if audio_path is None:
         yield (
             "Please upload an audio file or select a sample.",
-            "", "", "", "", None, ""
+            "", "", "", "", "", None, ""
         )
         return
     
@@ -52,7 +52,7 @@ def transcribe_audio(audio_path: str):
     
     yield (
         "Starting pipeline...",
-        transcript, language, itn_text, zh_tw_text, srt_file, metrics_text
+        transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text
     )
     
     try:
@@ -62,49 +62,49 @@ def transcribe_audio(audio_path: str):
             
             if stage == 'converting':
                 status = f"Converting: {message}"
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'loading_asr':
                 status = "Loading ASR model..."
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'transcribing':
                 transcript = update.get('text', '')
                 language = update.get('language', 'Detecting...')
                 status = "Transcribing..."
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'transcribed':
                 transcript = update.get('text', '')
                 language = update.get('language', 'Unknown')
                 status = "Transcription complete"
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'itn':
                 status = "Applying Inverse Text Normalization..."
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'itn_done':
                 itn_text = update.get('text', '')
                 status = "ITN complete"
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'tokenizing':
                 status = "Tokenizing with Jieba..."
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'loading_aligner':
                 status = "Loading Forced Aligner..."
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'aligning':
                 status = "Aligning words to audio..."
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'aligned':
                 count = update.get('alignment_count', 0)
                 status = f"Aligned {count} words"
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'done':
                 zh_tw_text = update.get('zh_tw_text', '')
@@ -126,17 +126,17 @@ def transcribe_audio(audio_path: str):
                     srt_file = str(srt_path)
                 
                 status = "Done!"
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'error':
                 status = f"Error: {message}"
-                yield (status, transcript, language, itn_text, zh_tw_text, srt_file, metrics_text)
+                yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
                 return
     
     except Exception as e:
         yield (
             f"Error: {str(e)}",
-            transcript, language, itn_text, zh_tw_text, srt_file, metrics_text
+            transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text
         )
 
 
@@ -269,6 +269,7 @@ with gr.Blocks(
             language_output,
             itn_output,
             zh_tw_output,
+            srt_preview,
             srt_download,
             metrics_output
         ]
