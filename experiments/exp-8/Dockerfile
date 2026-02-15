@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 ARG CHATLLM_REPO=https://github.com/vieenrose/chatllm.cpp.git
-ARG CHATLLM_BRANCH=feature/exp1-qwen3-asr
+ARG CHATLLM_BRANCH=fix/forced-aligner-parent-id-gap
 
 RUN git clone --depth 1 -b ${CHATLLM_BRANCH} --recursive ${CHATLLM_REPO} /app/chatllm.cpp
 
