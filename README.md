@@ -128,3 +128,10 @@ Located in: [`experiments/exp-7/`](experiments/exp-7/)
 - **SDK**: Docker (port 7860)
 
 For detailed usage instructions, please refer to the [Experiment 7 README](experiments/exp-7/README.md).
+
+### Experiment 8: Extend Experiment 7 to handle hours-long audio
+Start from a fresh copy of experiments/exp-7 named exp-8, 
+use ten-vad via ONNXruntime to segment input audio into chunks of around 20 seconds,
+so that each boundary between each pair of consecutive chunks is speech-aware,
+then run pipeline you devleloped in exp-7 to perform pipeline chunk by chunk, 
+with propre result accumulation and live streaming transcript display
