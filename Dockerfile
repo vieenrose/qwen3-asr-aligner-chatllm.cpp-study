@@ -14,7 +14,7 @@ ARG CHATLLM_BRANCH=feature/exp1-qwen3-asr
 
 RUN git clone --depth 1 -b ${CHATLLM_BRANCH} --recursive ${CHATLLM_REPO} /app/chatllm.cpp
 
-ARG BUILD_THREADS=22
+ARG BUILD_THREADS=2
 RUN rm -rf /app/chatllm.cpp/build && \
     mkdir -p /app/chatllm.cpp/build && \
     cd /app/chatllm.cpp/build && \
@@ -51,6 +51,7 @@ RUN pip install --no-cache-dir -r /app/experiments/exp-7/requirements.txt
 WORKDIR /app/experiments/exp-7
 
 ENV PYTHONPATH=/app/bindings:/app/Chinese-ITN:/app/chatllm.cpp/scripts
+ENV INFERENCE_THREADS=2
 
 EXPOSE 7860
 
