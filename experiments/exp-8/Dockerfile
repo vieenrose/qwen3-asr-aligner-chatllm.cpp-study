@@ -28,17 +28,16 @@ ENV LD_LIBRARY_PATH=/app/lib
 
 RUN pip install --no-cache-dir huggingface_hub && \
     mkdir -p /app/models && \
-    mkdir -p /app/samples && \
     python -c "from huggingface_hub import hf_hub_download; \
     hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-asr-0.6b-q4_0.bin', local_dir='/app/models'); \
     hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'qwen3-forced-aligner-0.6b-q4_0.bin', local_dir='/app/models'); \
-    hf_hub_download('TEN-framework/ten-vad', 'onnx_model/ten-vad.onnx', local_dir='/app/models'); \
-    hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'samples/phoneNumber1-zh-TW.wav', local_dir='/app'); \
-    hf_hub_download('Luigi/Qwen3-ASR-0.6B-chatllm-quantized', 'samples/news-zh.mp3', local_dir='/app')"
+    hf_hub_download('TEN-framework/ten-vad', 'onnx_model/ten-vad.onnx', local_dir='/app/models')"
 
 RUN git clone --depth 1 https://github.com/HaujetZhao/Chinese-ITN /app/Chinese-ITN
 
-COPY . /app/app/
+COPY samples/ /app/samples/
+COPY app.py pipeline.py chunker.py vad.py requirements.txt /app/app/
+COPY README.md /app/app/
 
 RUN mkdir -p /app/bindings && \
     cp /app/chatllm.cpp/bindings/libchatllm.so /app/bindings/ && \
