@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     git \
     ffmpeg \
+    libc++1 \
     && rm -rf /var/lib/apt/lists/*
 
 ARG CHATLLM_REPO=https://github.com/vieenrose/chatllm.cpp.git
