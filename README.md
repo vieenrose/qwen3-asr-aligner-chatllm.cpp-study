@@ -1,15 +1,4 @@
----
-title: Qwen3-ASR 0.6B CPU
-emoji: "\U0001F399"
-colorFrom: blue
-colorTo: purple
-sdk: docker
-pinned: false
-license: mit
-short_description: Speech Recognition with Forced Alignment (CPU Inference)
----
-
-# Qwen3-ASR 0.6B CPU - ASR with Forced Alignment Study
+# Speech Recognition for Long Audio Study: Qwen3-ASR, chatllm.cpp, Forced Alignment & VAD
 
 A research project implementing **Automatic Speech Recognition (ASR)** with **forced alignment** using the Qwen3-ASR model with **CPU-only inference** via a customized fork of `chatllm.cpp`.
 
@@ -203,6 +192,43 @@ cd experiments/exp-7
 docker build -t qwen3-asr-exp7 .
 docker run -p 7860:7860 qwen3-asr-exp7
 ```
+
+## Pushing to Remotes
+
+This repository pushes to three different remotes. **Use the correct command to avoid breaking deployments:**
+
+| Target | Remote | What Gets Pushed | Command |
+|--------|--------|------------------|---------|
+| **GitHub** | `github` | Full repo root | `git push github main` |
+| **HF exp-7** | `origin` | `experiments/exp-7/` subtree | `./push-exp7.sh` or `git subtree push --prefix=experiments/exp-7 origin main` |
+| **HF exp-8** | `vad` | `experiments/exp-8/` subtree | `./push-exp8.sh` or `git subtree push --prefix=experiments/exp-8 vad main` |
+
+### Convenience Scripts
+
+```bash
+# Push to all remotes
+./push-all.sh
+
+# Push to specific remote
+./push-exp7.sh   # HF exp-7 only
+./push-exp8.sh   # HF exp-8 only
+git push github main  # GitHub only
+```
+
+⚠️ **Do NOT** use these commands - they will push full repo and break HF Spaces:
+- ~~`git push origin main`~~
+- ~~`git push vad main`~~
+- ~~`git push --all`~~
+
+### Remote Configuration
+
+| Remote Name | URL | Purpose |
+|-------------|-----|---------|
+| `github` | https://github.com/vieenrose/qwen3-asr-aligner-chatllm.cpp-study.git | Source code repository |
+| `origin` | https://huggingface.co/spaces/Luigi/Qwen3-ASR-0.6B-CPU | HF Space (exp-7, short audio) |
+| `vad` | https://huggingface.co/spaces/Luigi/Qwen3-ASR-VAD | HF Space (exp-8, long audio + VAD) |
+
+View current remotes: `git remote -v`
 
 ## Known Issues
 
