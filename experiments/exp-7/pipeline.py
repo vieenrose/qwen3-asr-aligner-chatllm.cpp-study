@@ -162,7 +162,7 @@ def generate_srt_content(alignment: List[Dict]) -> str:
     return "\n".join(lines)
 
 
-def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, None]:
+def run_pipeline_streaming(audio_path: str, hint_text: str = "") -> Generator[Dict[str, Any], None, None]:
     '''
     Generator that yields status updates for real-time UI updates.
     
@@ -207,7 +207,10 @@ def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, N
         
         streamer = ChatLLMStreamer(chat)
         
-        user_input = f'{{{{audio:{wav_path}}}}}'
+        if hint_text and hint_text.strip():
+            user_input = f'{hint_text.strip()} {{{{audio:{wav_path}}}}}'
+        else:
+            user_input = f'{{{{audio:{wav_path}}}}}'
         
         yield {'stage': 'transcribing', 'message': 'Transcribing...', 'text': '', 'language': ''}
         
@@ -350,7 +353,7 @@ def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, N
         }
 
 
-def run_pipeline_simple(audio_path: str) -> Dict[str, Any]:
+def run_pipeline_simple(audio_path: str, hint_text: str = "") -> Dict[str, Any]:
     '''
     Non-streaming version that returns final results.
     Useful for testing or when streaming is not needed.
@@ -365,7 +368,7 @@ def run_pipeline_simple(audio_path: str) -> Dict[str, Any]:
         'metrics': {}
     }
     
-    for update in run_pipeline_streaming(audio_path):
+    for update in run_pipeline_streaming(audio_path, hint_text):
         if update['stage'] == 'transcribed':
             result['transcript'] = update.get('text', '')
             result['language'] = update.get('language', 'Unknown')

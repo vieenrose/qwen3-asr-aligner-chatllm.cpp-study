@@ -163,7 +163,8 @@ def generate_srt_content(alignment: List[Dict], offset_ms: int = 0) -> str:
 def run_single_chunk_asr(
     wav_path: str,
     bindings_path: str,
-    lib_asr: LibChatLLM
+    lib_asr: LibChatLLM,
+    context_prefix: str = ""
 ) -> Generator[Dict[str, Any], None, None]:
     '''Run ASR on a single chunk. Returns (transcript, detected_lang).'''
     
@@ -173,7 +174,10 @@ def run_single_chunk_asr(
     queue = Queue()
     chat.out_queue = queue
     
-    user_input = f'{{{{audio:{wav_path}}}}}'
+    if context_prefix and context_prefix.strip():
+        user_input = f'{context_prefix.strip()} {{{{audio:{wav_path}}}}}'
+    else:
+        user_input = f'{{{{audio:{wav_path}}}}}'
     
     result = lib_asr.chat(chat._chat, user_input)
     if result != 0:
@@ -269,7 +273,7 @@ def run_single_chunk_alignment(
     yield {'stage': 'chunk_aligned', 'alignment': alignment}
 
 
-def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, None]:
+def run_chunked_pipeline_streaming(audio_path: str, hint_text: str = "") -> Generator[Dict[str, Any], None, None]:
     '''
     Chunked pipeline for long audio.
     
@@ -335,6 +339,8 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
     yield {'stage': 'loading_aligner', 'message': 'Loading Forced Aligner model...'}
     lib_aligner = LibChatLLM(bindings_path)
     
+    SLIDING_CONTEXT_CHARS = 300
+    
     for chunk_idx, (start_ms, end_ms) in enumerate(chunks):
         chunk_info = chunker.get_chunk_info(chunk_idx)
         
@@ -353,11 +359,14 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
         try:
             chunker.get_chunk_audio(chunk_idx, chunk_wav_path)
             
+            sliding_context = accumulated_transcript[-SLIDING_CONTEXT_CHARS:] if accumulated_transcript else ""
+            context_prefix = f"{hint_text} {sliding_context}".strip() if hint_text or sliding_context else ""
+            
             chunk_asr_start = time.time()
             first_token_time = None
             chunk_transcript = ""
             
-            for update in run_single_chunk_asr(chunk_wav_path, bindings_path, lib_asr):
+            for update in run_single_chunk_asr(chunk_wav_path, bindings_path, lib_asr, context_prefix):
                 if update['stage'] == 'chunk_transcribing':
                     partial_text = update.get('text', '')
                     detected_language = update.get('language', detected_language)
@@ -474,19 +483,19 @@ def run_chunked_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any],
     }
 
 
-def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, None]:
+def run_pipeline_streaming(audio_path: str, hint_text: str = "") -> Generator[Dict[str, Any], None, None]:
     '''
     Main entry point - routes to chunked or single-pass based on duration.
     '''
     duration = get_audio_duration(audio_path)
     
     if duration < CHUNK_THRESHOLD_SEC:
-        yield from run_single_pass_pipeline_streaming(audio_path)
+        yield from run_single_pass_pipeline_streaming(audio_path, hint_text)
     else:
-        yield from run_chunked_pipeline_streaming(audio_path)
+        yield from run_chunked_pipeline_streaming(audio_path, hint_text)
 
 
-def run_single_pass_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, None]:
+def run_single_pass_pipeline_streaming(audio_path: str, hint_text: str = "") -> Generator[Dict[str, Any], None, None]:
     '''
     Single-pass pipeline for short audio (<30s).
     Same as exp-7 logic.
@@ -525,7 +534,10 @@ def run_single_pass_pipeline_streaming(audio_path: str) -> Generator[Dict[str, A
         queue = Queue()
         chat.out_queue = queue
         
-        user_input = f'{{{{audio:{wav_path}}}}}'
+        if hint_text and hint_text.strip():
+            user_input = f'{hint_text.strip()} {{{{audio:{wav_path}}}}}'
+        else:
+            user_input = f'{{{{audio:{wav_path}}}}}'
         
         yield {'stage': 'transcribing', 'message': 'Transcribing...', 'text': '', 'language': ''}
         
@@ -685,7 +697,7 @@ def run_single_pass_pipeline_streaming(audio_path: str) -> Generator[Dict[str, A
         }
 
 
-def run_pipeline_simple(audio_path: str) -> Dict[str, Any]:
+def run_pipeline_simple(audio_path: str, hint_text: str = "") -> Dict[str, Any]:
     '''
     Non-streaming version that returns final results.
     '''
@@ -699,7 +711,7 @@ def run_pipeline_simple(audio_path: str) -> Dict[str, Any]:
         'metrics': {}
     }
     
-    for update in run_pipeline_streaming(audio_path):
+    for update in run_pipeline_streaming(audio_path, hint_text):
         if update['stage'] == 'transcribed':
             result['transcript'] = update.get('text', '')
             result['language'] = update.get('language', 'Unknown')
