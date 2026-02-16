@@ -9,7 +9,7 @@ license: mit
 short_description: Speech Recognition with VAD Chunking for Long Audio
 ---
 
-# Qwen3-ASR 0.6B - Speech Recognition with VAD Chunking
+# Lightweight Long-Audio ASR Stack: Qwen3 ASR + Ten-VAD + Qwen3 Aligner on ChatLLM.cpp
 
 Automatic Speech Recognition (ASR) using the **Qwen3-ASR** model with **TEN VAD** for handling long audio files.
 
@@ -85,6 +85,13 @@ Accumulate (with timestamp offsets)
 
 ## Links
 
+### Source Code & Study
+- [Study Repository](https://github.com/vieenrose/qwen3-asr-aligner-chatllm.cpp-study) - Full experiment documentation
+- [chatllm.cpp Fork](https://github.com/vieenrose/chatllm.cpp) - ASR-enabled inference engine
+
+### Models
+- [Qwen3-ASR & Aligner Models](https://huggingface.co/Luigi/Qwen3-ASR-0.6B-chatllm-quantized) - Quantized models for CPU inference
+
+### References
 - [Qwen3-Audio GitHub](https://github.com/QwenLM/Qwen3-Audio)
 - [TEN VAD GitHub](https://github.com/TEN-framework/ten-vad)
-- [chatllm.cpp Fork](https://github.com/vieenrose/chatllm.cpp)

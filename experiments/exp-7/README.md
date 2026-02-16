@@ -9,7 +9,7 @@ license: mit
 short_description: Speech Recognition with Forced Alignment (CPU Inference)
 ---
 
-# Qwen3-ASR 0.6B - Speech Recognition with Forced Alignment
+# Qwen3 ASR with Forced Alignment on ChatLLM.cpp (Up to 5 Minutes)
 
 Automatic Speech Recognition (ASR) using the **Qwen3-ASR** model with CPU inference powered by **chatllm.cpp**.
 
@@ -50,5 +50,13 @@ Audio -> WAV -> ASR (streaming) -> ITN -> Jieba -> Aligner -> OpenCC -> SRT
 
 ## Links
 
+### Source Code & Study
+- [Study Repository](https://github.com/vieenrose/qwen3-asr-aligner-chatllm.cpp-study) - Full experiment documentation
+- [chatllm.cpp Fork](https://github.com/vieenrose/chatllm.cpp) - ASR-enabled inference engine
+
+### Models
+- [Qwen3-ASR & Aligner Models](https://huggingface.co/Luigi/Qwen3-ASR-0.6B-chatllm-quantized) - Quantized models for CPU inference
+
+### References
 - [Qwen3-Audio GitHub](https://github.com/QwenLM/Qwen3-Audio)
 - [Qwen3-Audio Paper](https://arxiv.org/abs/2502.09345)

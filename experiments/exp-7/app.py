@@ -147,7 +147,7 @@ def load_sample(sample_name: str):
 
 
 with gr.Blocks(
-    title="Qwen3-ASR - Speech Recognition"
+    title="Qwen3 ASR with Forced Alignment on ChatLLM.cpp (Up to 5 Minutes)"
 ) as app:
     
     gr.Markdown(
