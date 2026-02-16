@@ -29,6 +29,9 @@ if (SAMPLES_DIR / 'phoneNumber1-zh-TW.wav').exists():
 if (SAMPLES_DIR / 'news-zh.mp3').exists():
     SAMPLE_AUDIOS["News (Chinese, 2.7 min)"] = str(SAMPLES_DIR / 'news-zh.mp3')
     SAMPLE_HINTS["News (Chinese, 2.7 min)"] = "新聞播報，包含經濟、政治或社會議題"
+if (SAMPLES_DIR / 'gettysburg_address_lincoln_64kb.mp3').exists():
+    SAMPLE_AUDIOS["Gettysburg Address (English, 2.7 min)"] = str(SAMPLES_DIR / 'gettysburg_address_lincoln_64kb.mp3')
+    SAMPLE_HINTS["Gettysburg Address (English, 2.7 min)"] = "English speech, American history"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pipeline import run_pipeline_streaming
