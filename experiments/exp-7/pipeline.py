@@ -35,7 +35,9 @@ CONTEXT_LENGTH = os.getenv('CONTEXT_LENGTH', '4096')
 sys.path.insert(0, str(PROJECT_ROOT / 'chatllm.cpp' / 'bindings'))
 sys.path.insert(0, str(PROJECT_ROOT / 'chatllm.cpp' / 'scripts'))
 
-from chatllm import LibChatLLM, ChatLLM, LLMChatChunk, LLMChatDone
+from chatllm import LibChatLLM, ChatLLM, ChatLLMStreamer, LLMChatChunk, LLMChatDone
+
+CHUNK_TIMEOUT_SEC = 300  # 5 minutes timeout
 
 import jieba
 import opencc
@@ -203,59 +205,53 @@ def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, N
         llm_params = get_asr_params()
         chat = ChatLLM(lib_asr, llm_params)
         
-        queue = Queue()
-        chat.out_queue = queue
+        streamer = ChatLLMStreamer(chat)
         
         user_input = f'{{{{audio:{wav_path}}}}}'
         
         yield {'stage': 'transcribing', 'message': 'Transcribing...', 'text': '', 'language': ''}
         
-        result = lib_asr.chat(chat._chat, user_input)
-        if result != 0:
-            chat.destroy()
-            del chat
-            del lib_asr
-            yield {'stage': 'error', 'message': f'ASR failed with code: {result}'}
-            return
-        
-        chunks = []
+        asr_start = time.time()
         first_token_time = None
-        start_time = time.time()
+        text_acc = ''
+        detected_lang = 'Unknown'
         
-        while True:
-            try:
-                item = queue.get(timeout=300.0)
-                if isinstance(item, LLMChatChunk):
-                    chunk = item.chunk
-                    if chunk is None or chunk in ['<asr_text>', '</asr_text>', 'language']:
-                        continue
-                    if first_token_time is None:
+        try:
+            for output in streamer.chat(user_input):
+                if time.time() - asr_start > CHUNK_TIMEOUT_SEC:
+                    yield {'stage': 'error', 'message': f'ASR timed out after {CHUNK_TIMEOUT_SEC}s'}
+                    return
+                
+                if isinstance(output, str):
+                    text_acc += output
+                    
+                    for tag in ['<asr_text>', '</asr_text>', 'language']:
+                        text_acc = text_acc.replace(tag, '')
+                    
+                    detected_lang, filtered = extract_language(text_acc)
+                    
+                    if first_token_time is None and output.strip():
                         first_token_time = time.time()
-                    chunks.append(chunk)
-                    raw_output = ''.join(chunks)
-                    detected_lang, _ = extract_language(raw_output)
+                    
                     yield {
                         'stage': 'transcribing',
                         'message': 'Transcribing...',
-                        'text': raw_output,
+                        'text': filtered,
                         'language': detected_lang
                     }
-                elif isinstance(item, LLMChatDone):
-                    break
-            except Empty:
-                break
+        finally:
+            streamer.terminate()
+            chat.destroy()
         
-        raw_output = ''.join(chunks)
-        end_time = time.time()
+        asr_end = time.time()
         
-        detected_lang, transcript = extract_language(raw_output)
+        detected_lang, transcript = extract_language(text_acc)
         
         if first_token_time:
-            metrics['asr_ttft_ms'] = (first_token_time - start_time) * 1000
-            gen_time = end_time - first_token_time
-            metrics['asr_speed_chars_per_sec'] = len(raw_output) / gen_time if gen_time > 0 else 0
+            metrics['asr_ttft_ms'] = (first_token_time - asr_start) * 1000
+            gen_time = asr_end - first_token_time
+            metrics['asr_speed_chars_per_sec'] = len(text_acc) / gen_time if gen_time > 0 else 0
         
-        chat.destroy()
         del chat
         del lib_asr
         
@@ -295,54 +291,42 @@ def run_pipeline_streaming(audio_path: str) -> Generator[Dict[str, Any], None, N
         llm_params = get_aligner_params()
         chat = ChatLLM(lib_aligner, llm_params)
         
-        queue = Queue()
-        chat.out_queue = queue
+        streamer = ChatLLMStreamer(chat)
         
         user_input = f'{{{{audio:{wav_path}}}}} {tokenized_text}'
         
         yield {'stage': 'aligning', 'message': 'Aligning words to audio...'}
         
-        result = lib_aligner.chat(chat._chat, user_input)
-        if result != 0:
-            chat.destroy()
-            del chat
-            del lib_aligner
-            yield {'stage': 'error', 'message': f'Alignment failed with code: {result}'}
-            return
-        
-        chunks = []
+        align_start = time.time()
         first_token_time = None
-        start_time = time.time()
+        align_text_acc = ''
         
-        while True:
-            try:
-                item = queue.get(timeout=300.0)
-                if isinstance(item, LLMChatChunk):
-                    chunk = item.chunk
-                    if chunk is None:
-                        continue
+        try:
+            for output in streamer.chat(user_input):
+                if time.time() - align_start > CHUNK_TIMEOUT_SEC:
+                    yield {'stage': 'error', 'message': f'Alignment timed out after {CHUNK_TIMEOUT_SEC}s'}
+                    return
+                
+                if isinstance(output, str):
+                    align_text_acc += output
                     if first_token_time is None:
                         first_token_time = time.time()
-                    chunks.append(chunk)
-                elif isinstance(item, LLMChatDone):
-                    break
-            except Empty:
-                break
+        finally:
+            streamer.terminate()
+            chat.destroy()
         
-        output = ''.join(chunks)
-        end_time = time.time()
+        align_end = time.time()
         
         if first_token_time:
-            metrics['aligner_ttft_ms'] = (first_token_time - start_time) * 1000
-            gen_time = end_time - first_token_time
-            metrics['aligner_speed_chars_per_sec'] = len(output) / gen_time if gen_time > 0 else 0
+            metrics['aligner_ttft_ms'] = (first_token_time - align_start) * 1000
+            gen_time = align_end - first_token_time
+            metrics['aligner_speed_chars_per_sec'] = len(align_text_acc) / gen_time if gen_time > 0 else 0
         
-        chat.destroy()
         del chat
         del lib_aligner
         
         try:
-            alignment = json.loads(output)
+            alignment = json.loads(align_text_acc)
         except json.JSONDecodeError:
             alignment = []
         
