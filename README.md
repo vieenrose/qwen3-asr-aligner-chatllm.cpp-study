@@ -1,3 +1,15 @@
+---
+title: Qwen3-ASR 0.6B CPU
+emoji: "\U0001F399"
+colorFrom: blue
+colorTo: purple
+sdk: docker
+app_file: experiments/exp-7/app.py
+pinned: false
+license: mit
+short_description: Speech Recognition with Forced Alignment (CPU Inference)
+---
+
 # Speech Recognition for Long Audio Study: Qwen3-ASR, chatllm.cpp, Forced Alignment & VAD
 
 A research project implementing **Automatic Speech Recognition (ASR)** with **forced alignment** using the Qwen3-ASR model with **CPU-only inference** via a customized fork of `chatllm.cpp`.
@@ -36,6 +48,8 @@ This repository documents a systematic study progressing from basic ASR pipeline
 | **Batch model loading** | 3x faster for long audio (78 loads → 2 loads) |
 | **ChatLLMStreamer** | True token-by-token streaming (vs burst output) |
 | **VAD chunking** | Handles hours-long audio with ~20s chunks |
+| **Hint text context** | Improves ASR accuracy with contextual hints |
+| **Sliding context** | exp-8 uses last 300 chars for chunk continuity |
 
 ### chatllm.cpp Bug Fixes
 
@@ -102,7 +116,10 @@ Qwen3-ASR-0.6B-CPU/
 │   ├── qwen3-asr-0.6b-q4_0.bin        # 514 MB - ASR model
 │   ├── qwen3-asr-1.7b-q4_0.bin        # 1.27 GB - ASR model (alternative)
 │   └── qwen3-forced-aligner-0.6b-q4_0.bin  # 503 MB - Aligner model
-├── samples/                   # Test audio files
+├── samples/                   # Test audio files (see SOURCES.md)
+├── .deploy/                   # Deploy repos for HuggingFace Spaces
+│   ├── exp-7/                 # → Luigi/Qwen3-ASR-0.6B-CPU
+│   └── exp-8/                 # → Luigi/Qwen3-ASR-VAD
 ├── experiments/               # 8 experiment directories
 │   ├── qwen3-asr-chatllm.cpp/         # Exp 1: ASR pipeline
 │   ├── two-ways-of-repeated-inference/ # Exp 2: Memory comparison
@@ -194,42 +211,46 @@ docker build -t qwen3-asr-exp7 .
 docker run -p 7860:7860 qwen3-asr-exp7
 ```
 
-## Pushing to Remotes
+## Deployment
 
-This repository pushes to three different remotes. **Use the correct command to avoid breaking deployments:**
+This repository uses separate deploy directories for HuggingFace Spaces. Each deploy directory is a self-contained git repo.
 
-| Target | Remote | What Gets Pushed | Command |
-|--------|--------|------------------|---------|
-| **GitHub** | `github` | Full repo root | `git push github main` |
-| **HF exp-7** | `origin` | `experiments/exp-7/` subtree | `./push-exp7.sh` or `git subtree push --prefix=experiments/exp-7 origin main` |
-| **HF exp-8** | `vad` | `experiments/exp-8/` subtree | `./push-exp8.sh` or `git subtree push --prefix=experiments/exp-8 vad main` |
+### Deploy Workflow
 
-### Convenience Scripts
+| Target | Deploy Directory | Push Command |
+|--------|------------------|--------------|
+| **GitHub** (source) | Root repo | `git push github main` |
+| **HF exp-7** | `.deploy/exp-7/` | `cd .deploy/exp-7 && git add . && git commit -m "msg" && git push origin main` |
+| **HF exp-8** | `.deploy/exp-8/` | `cd .deploy/exp-8 && git add . && git commit -m "msg" && git push origin main` |
+
+### Typical Workflow
 
 ```bash
-# Push to all remotes
-./push-all.sh
+# 1. Make changes in experiments/exp-7/ or experiments/exp-8/
+vim experiments/exp-7/app.py
 
-# Push to specific remote
-./push-exp7.sh   # HF exp-7 only
-./push-exp8.sh   # HF exp-8 only
-git push github main  # GitHub only
+# 2. Copy to deploy directory
+cp experiments/exp-7/app.py .deploy/exp-7/app.py
+cp experiments/exp-7/pipeline.py .deploy/exp-7/pipeline.py
+
+# 3. Push to HuggingFace
+cd .deploy/exp-7
+git add . && git commit -m "Your message" && git push origin main
+
+# 4. Push source to GitHub
+cd ../..
+git add experiments/exp-7/app.py
+git commit -m "Your message"
+git push github main
 ```
 
-⚠️ **Do NOT** use these commands - they will push full repo and break HF Spaces:
-- ~~`git push origin main`~~
-- ~~`git push vad main`~~
-- ~~`git push --all`~~
+### Deploy Repo Structure
 
-### Remote Configuration
-
-| Remote Name | URL | Purpose |
-|-------------|-----|---------|
-| `github` | https://github.com/vieenrose/qwen3-asr-aligner-chatllm.cpp-study.git | Source code repository |
-| `origin` | https://huggingface.co/spaces/Luigi/Qwen3-ASR-0.6B-CPU | HF Space (exp-7, short audio) |
-| `vad` | https://huggingface.co/spaces/Luigi/Qwen3-ASR-VAD | HF Space (exp-8, long audio + VAD) |
-
-View current remotes: `git remote -v`
+Each `.deploy/exp-*` directory contains:
+- `app.py`, `pipeline.py` - Main application code
+- `Dockerfile` - Self-contained build with embedded submodules
+- `chatllm.cpp/` - Embedded copy of the C++ engine
+- `Chinese-ITN/` - Embedded copy of ITN module
 
 ## Known Issues
 
@@ -250,6 +271,18 @@ All discovered issues have been fixed and documented in [ISSUES.md](ISSUES.md):
 | **OpenCC** | zh-CN to zh-TW conversion |
 | **Jieba** | Chinese word segmentation |
 | **Gradio** | WebUI framework |
+
+## Sample Audio Sources
+
+Demo samples used in HuggingFace Spaces are provided for demonstration purposes. See [samples/SOURCES.md](samples/SOURCES.md) for full details.
+
+| Sample | Duration | Language | Source |
+|--------|----------|----------|--------|
+| Phone Number (zh-TW) | 30s | Taiwanese Mandarin | Self-recorded |
+| News (Chinese) | 2.7 min | Chinese | [PTS Daily News](https://podcasts.apple.com/tw/podcast/公視每日新聞-daily-news/id1519821634) |
+| Gettysburg Address | 2.7 min | English | [LibriVox (Public Domain)](https://archive.org/details/jwouoqnbaxne6gyid6bsnptcpixuhmtrc8n0qwio) |
+| Steve Jobs Speech | 17 min | English | [Stanford 2005 (Archive.org)](https://archive.org/download/SteveJobsSpeechAtStanfordUniversity) |
+| Classroom Hotness | 4.9 min | Taiwanese Minnan (閩南語) | [MOE Taiwan - 教室裡的熱天](https://www.jsps.tn.edu.tw/modules/tad_uploader/index.php?of_cat_sn=36) |
 
 ## References
 
