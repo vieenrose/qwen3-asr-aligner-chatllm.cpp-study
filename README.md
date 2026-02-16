@@ -1,15 +1,3 @@
----
-title: Qwen3-ASR 0.6B CPU
-emoji: "\U0001F399"
-colorFrom: blue
-colorTo: purple
-sdk: docker
-app_file: experiments/exp-7/app.py
-pinned: false
-license: mit
-short_description: Speech Recognition with Forced Alignment (CPU Inference)
----
-
 # Speech Recognition for Long Audio Study: Qwen3-ASR, chatllm.cpp, Forced Alignment & VAD
 
 A research project implementing **Automatic Speech Recognition (ASR)** with **forced alignment** using the Qwen3-ASR model with **CPU-only inference** via a customized fork of `chatllm.cpp`.
