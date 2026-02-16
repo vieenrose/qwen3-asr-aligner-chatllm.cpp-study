@@ -37,6 +37,9 @@ if (SAMPLES_DIR / 'gettysburg_address_lincoln_64kb.mp3').exists():
 if (SAMPLES_DIR / 'SteveJobsSpeech_64kb.mp3').exists():
     SAMPLE_AUDIOS["Steve Jobs Speech (English, 17 min)"] = str(SAMPLES_DIR / 'SteveJobsSpeech_64kb.mp3')
     SAMPLE_HINTS["Steve Jobs Speech (English, 17 min)"] = "English speech, technology keynote"
+if (SAMPLES_DIR / 'classroom-hotness-minan.mp3').exists():
+    SAMPLE_AUDIOS["Classroom Hotness (Minnan, 4.9 min)"] = str(SAMPLES_DIR / 'classroom-hotness-minan.mp3')
+    SAMPLE_HINTS["Classroom Hotness (Minnan, 4.9 min)"] = "閩南語語音，教室熱天故事"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pipeline import run_pipeline_streaming
