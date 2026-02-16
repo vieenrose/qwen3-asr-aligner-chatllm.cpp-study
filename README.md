@@ -1,3 +1,14 @@
+---
+title: Qwen3-ASR 0.6B CPU
+emoji: "\U0001F399"
+colorFrom: blue
+colorTo: purple
+sdk: docker
+pinned: false
+license: mit
+short_description: Speech Recognition with Forced Alignment (CPU Inference)
+---
+
 # Qwen3-ASR 0.6B CPU - ASR with Forced Alignment Study
 
 A research project implementing **Automatic Speech Recognition (ASR)** with **forced alignment** using the Qwen3-ASR model with **CPU-only inference** via a customized fork of `chatllm.cpp`.
