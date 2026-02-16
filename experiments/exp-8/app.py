@@ -112,7 +112,7 @@ def transcribe_audio(audio_path: str):
                 chunk_idx = update.get('chunk_index', 0) + 1
                 total = update.get('total_chunks', 1)
                 status = f"Transcribing {chunk_progress}..."
-                transcript = accumulated
+                transcript = accumulated + partial  # Show previous chunks + current streaming
                 yield (status, transcript, language, itn_text, zh_tw_text, srt_content, srt_file, metrics_text)
             
             elif stage == 'chunk_itn':
@@ -241,7 +241,7 @@ with gr.Blocks(
     
     gr.Markdown(
         """
-        # Qwen3-ASR 0.6B - Speech Recognition with VAD Chunking
+        # Lightweight Long-Audio ASR Stack: Qwen3 ASR + Ten-VAD + Qwen3 Aligner on ChatLLM.cpp
         
         Upload an audio file or select a sample below. For long audio (>30s), the system will:
         1. Detect speech segments using TEN VAD
